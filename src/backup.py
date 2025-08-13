@@ -125,8 +125,9 @@ class BackupManager:
             original_path = Path(info["original_path"])
 
             try:
-                is_relative = original_path.parent == directory or original_path.is_relative_to(
-                    directory
+                is_relative = (
+                    original_path.parent == directory
+                    or original_path.is_relative_to(directory)
                 )
             except AttributeError:
                 # Python < 3.9 doesn't have is_relative_to
@@ -135,7 +136,7 @@ class BackupManager:
                     is_relative = True
                 except ValueError:
                     is_relative = original_path.parent == directory
-            
+
             if is_relative:
                 results[str(original_path)] = self.restore_file(original_path)
 

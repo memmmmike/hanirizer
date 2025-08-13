@@ -442,7 +442,9 @@ class ArchiveHandler:
             try:
                 import pyminizip
             except ImportError:
-                logger.warning("pyminizip not installed. Creating unencrypted ZIP instead.")
+                logger.warning(
+                    "pyminizip not installed. Creating unencrypted ZIP instead."
+                )
                 password = None
 
         if password:

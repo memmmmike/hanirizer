@@ -98,7 +98,9 @@ class NetworkSanitizer:
 
         return result
 
-    def sanitize_directory(self, directory: Union[str, Path]) -> List[SanitizationResult]:
+    def sanitize_directory(
+        self, directory: Union[str, Path]
+    ) -> List[SanitizationResult]:
         """Sanitize all matching files in a directory."""
         directory = Path(directory) if isinstance(directory, str) else directory
         results: List[SanitizationResult] = []
