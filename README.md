@@ -2,7 +2,7 @@
 
 A robust Python tool for sanitizing sensitive information in network device configuration files while preserving functionality and readability.
 
-![Python](https://img.shields.io/badge/python-3.7%2B-blue)
+![Python](https://img.shields.io/badge/python-3.8%2B-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Tests](https://img.shields.io/badge/tests-passing-brightgreen)
 ![Coverage](https://img.shields.io/badge/coverage-95%25-brightgreen)
@@ -25,7 +25,7 @@ A robust Python tool for sanitizing sensitive information in network device conf
 
 ### System Requirements
 
-**Python**: 3.7 or higher
+**Python**: 3.8 or higher
 
 **Optional dependencies for archive support**:
 - **7-Zip archives (.7z)**: 
