@@ -193,7 +193,8 @@ class ArchiveHandler:
                     password: Optional[str] = None) -> Tuple[Path, List[Path]]:
         """Extract 7z archive using 7z command."""
         if not self._7z_available:
-            raise RuntimeError("7z command not available. Install p7zip-full package.")
+            logger.warning("7z command not available. Install p7zip-full (Linux/Mac) or 7-Zip (Windows) for 7z support.")
+            raise RuntimeError("7z support not available. Please install: Linux/Mac: 'sudo apt-get install p7zip-full' or 'brew install p7zip', Windows: 'choco install 7zip'")
         
         # Build 7z command
         cmd = ['7z', 'x', '-y', f'-o{extract_dir}', str(archive_path)]
@@ -227,7 +228,8 @@ class ArchiveHandler:
                      password: Optional[str] = None) -> Tuple[Path, List[Path]]:
         """Extract RAR archive using unrar command."""
         if not self._rar_available:
-            raise RuntimeError("unrar command not available. Install unrar package.")
+            logger.warning("unrar command not available. Install unrar (Linux) or WinRAR (Windows) for RAR support.")
+            raise RuntimeError("RAR support not available. Please install: Linux: 'sudo apt-get install unrar', Mac: 'brew install --cask rar', Windows: 'choco install unrar'")
         
         # Build unrar command
         cmd = ['unrar', 'x', '-y', str(archive_path), str(extract_dir) + '/']
@@ -406,7 +408,8 @@ class ArchiveHandler:
                    password: Optional[str] = None) -> Path:
         """Create a 7z archive with optional encryption."""
         if not self._7z_available:
-            raise RuntimeError("7z command not available. Install p7zip-full package.")
+            logger.warning("7z command not available. Cannot create 7z archives.")
+            raise RuntimeError("7z support not available. Please install: Linux/Mac: 'sudo apt-get install p7zip-full' or 'brew install p7zip', Windows: 'choco install 7zip'")
         
         cmd = ['7z', 'a', '-t7z', str(output_path), f'{source_dir}/*']
         

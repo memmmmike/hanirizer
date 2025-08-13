@@ -23,6 +23,22 @@ A robust Python tool for sanitizing sensitive information in network device conf
 
 ## Quick Start
 
+### System Requirements
+
+**Python**: 3.7 or higher
+
+**Optional dependencies for archive support**:
+- **7-Zip archives (.7z)**: 
+  - Linux/Ubuntu: `sudo apt-get install p7zip-full`
+  - macOS: `brew install p7zip`
+  - Windows: `choco install 7zip` or download from [7-zip.org](https://www.7-zip.org/)
+- **RAR archives (.rar)**:
+  - Linux/Ubuntu: `sudo apt-get install unrar`
+  - macOS: `brew install --cask rar`
+  - Windows: `choco install unrar` or download WinRAR
+
+Note: ZIP and TAR archives work out of the box with Python's standard library.
+
 ### Installation
 
 ```bash
@@ -30,7 +46,7 @@ A robust Python tool for sanitizing sensitive information in network device conf
 pip install network-config-sanitizer
 
 # Or install from source
-git clone https://github.com/yourusername/network-config-sanitizer.git
+git clone https://github.com/memmmmike/hanirizer.git
 cd network-config-sanitizer
 pip install -e .
 ```
@@ -303,6 +319,30 @@ Contributions are welcome! Please read our [Contributing Guidelines](CONTRIBUTIN
 3. Commit your changes (`git commit -m 'Add amazing feature'`)
 4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
+
+## CI/CD Integration
+
+The tool is tested on multiple platforms and can be integrated into CI/CD pipelines:
+
+```yaml
+# GitHub Actions example
+- name: Install system dependencies
+  run: |
+    sudo apt-get update
+    sudo apt-get install -y p7zip-full unrar  # For 7z and RAR support
+    
+- name: Sanitize configs
+  run: |
+    pip install network-config-sanitizer
+    netsan sanitize --dry-run ./configs/
+```
+
+The tool works on:
+- ✅ Linux (Ubuntu, Debian, CentOS, RHEL)
+- ✅ macOS 
+- ✅ Windows
+- ✅ Docker containers
+- ✅ GitHub Actions, GitLab CI, Jenkins
 
 ## Security Considerations
 
