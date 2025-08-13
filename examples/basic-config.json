@@ -1,0 +1,47 @@
+{
+  "service_accounts": [
+    "admin",
+    "service",
+    "monitor",
+    "backup",
+    "ansible",
+    "netconf"
+  ],
+  "personal_accounts": [
+    "john.doe",
+    "jane.smith",
+    "bob.wilson",
+    "alice.johnson"
+  ],
+  "patterns": {
+    "custom_api_key": {
+      "pattern": "X-API-Key: ([A-Za-z0-9+/=]+)",
+      "replacement": "X-API-Key: REDACTED_API_KEY",
+      "flags": [],
+      "description": "Custom API key in headers"
+    },
+    "internal_subnet": {
+      "pattern": "192\\.168\\.\\d+\\.\\d+",
+      "replacement": "192.168.X.X",
+      "flags": [],
+      "description": "Internal subnet addresses"
+    }
+  },
+  "backup": {
+    "enabled": true,
+    "directory": ".backups",
+    "retention_days": 30,
+    "compression": true
+  },
+  "file_patterns": [
+    "*.txt",
+    "*.conf",
+    "*.config",
+    "*.cfg"
+  ],
+  "recursive": true,
+  "preserve_structure": true,
+  "verbose": false,
+  "dry_run": false,
+  "parallel_workers": 4
+}

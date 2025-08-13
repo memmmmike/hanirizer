@@ -1,0 +1,109 @@
+---
+# Cisco-specific configuration for network sanitizer
+
+service_accounts:
+  - admin
+  - cisco
+  - enable
+  - operator
+  - monitor
+  - rancid
+  - netconf
+  - restconf
+  - ansible
+  - nornir
+
+personal_accounts:
+  - john.doe
+  - jane.smith
+  - network.admin
+  - tier1.support
+  - tier2.support
+
+patterns:
+  # Cisco-specific patterns
+  vtp_password:
+    pattern: 'vtp password (\S+)'
+    replacement: 'vtp password REDACTED_VTP'
+    description: 'VTP domain password'
+  
+  hsrp_auth:
+    pattern: 'standby \d+ authentication md5 key-string (\S+)'
+    replacement: 'standby authentication md5 key-string REDACTED_HSRP'
+    description: 'HSRP authentication'
+  
+  glbp_auth:
+    pattern: 'glbp \d+ authentication md5 key-string (\S+)'
+    replacement: 'glbp authentication md5 key-string REDACTED_GLBP'
+    description: 'GLBP authentication'
+  
+  vrrp_auth:
+    pattern: 'vrrp \d+ authentication (\S+)'
+    replacement: 'vrrp authentication REDACTED_VRRP'
+    description: 'VRRP authentication'
+  
+  isis_password:
+    pattern: 'isis password (\S+)'
+    replacement: 'isis password REDACTED_ISIS'
+    flags: ['IGNORECASE']
+    description: 'IS-IS routing protocol password'
+  
+  rip_auth:
+    pattern: 'ip rip authentication key-chain (\S+)'
+    replacement: 'ip rip authentication key-chain REDACTED_RIP'
+    description: 'RIP authentication key-chain'
+  
+  dot1x_credentials:
+    pattern: 'dot1x credentials (\S+)'
+    replacement: 'dot1x credentials REDACTED_DOT1X'
+    description: '802.1X credentials'
+  
+  wireless_psk:
+    pattern: 'wpa-psk ascii \d+ (\S+)'
+    replacement: 'wpa-psk ascii 7 REDACTED_WPA_PSK'
+    description: 'Wireless WPA pre-shared key'
+  
+  aaa_server_key:
+    pattern: 'server-private (\S+) key (\S+)'
+    replacement: 'server-private \1 key REDACTED_AAA_KEY'
+    description: 'AAA server private key'
+  
+  ipsec_password:
+    pattern: 'crypto isakmp key (\S+) address'
+    replacement: 'crypto isakmp key REDACTED_IPSEC address'
+    description: 'IPSec ISAKMP key'
+  
+  eigrp_auth:
+    pattern: 'ip authentication key-chain eigrp \d+ (\S+)'
+    replacement: 'ip authentication key-chain eigrp REDACTED_EIGRP'
+    description: 'EIGRP authentication key-chain'
+  
+  ntp_auth_key:
+    pattern: 'ntp authentication-key \d+ md5 (\S+)'
+    replacement: 'ntp authentication-key md5 REDACTED_NTP'
+    description: 'NTP authentication key'
+  
+  archive_password:
+    pattern: 'password \d+ (\S+)'
+    replacement: 'password 7 REDACTED_ARCHIVE'
+    description: 'Archive/backup password'
+
+backup:
+  enabled: true
+  directory: .cisco-backups
+  retention_days: 90
+  compression: true
+
+file_patterns:
+  - '*.txt'
+  - '*.conf'
+  - '*.config'
+  - '*.cfg'
+  - 'running-config'
+  - 'startup-config'
+
+recursive: true
+preserve_structure: true
+verbose: false
+dry_run: false
+parallel_workers: 8
