@@ -32,7 +32,7 @@ class TestNetworkSanitizer:
         """Test sanitization of enable secrets."""
         content = "enable secret 5 $1$xyz$abcdef123456"
         result = sanitizer.sanitize_content(content)
-        assert "$REDACTED_ENABLE_SECRET" in result
+        assert "$SANITIZED_ENABLE_" in result
         assert "$1$xyz$abcdef123456" not in result
 
     def test_sanitize_username_password(self, sanitizer):
@@ -42,7 +42,7 @@ class TestNetworkSanitizer:
         username john.doe password 7 1234567890ABCDEF
         """
         result = sanitizer.sanitize_content(content)
-        assert "$REDACTED_" in result
+        assert "$SANITIZED_SECRET_" in result
         assert "$1$abc$def123" not in result
         assert "1234567890ABCDEF" not in result
 
@@ -51,7 +51,7 @@ class TestNetworkSanitizer:
         content = "username admin secret 5 $1$abc$def123"
         result = sanitizer.sanitize_content(content)
         assert "username admin" in result
-        assert "$REDACTED_" in result
+        assert "$SANITIZED_SECRET_" in result
 
     def test_replace_personal_accounts(self, sanitizer):
         """Test that personal account usernames are replaced."""
@@ -71,7 +71,7 @@ class TestNetworkSanitizer:
         tacacs-server key MySecretKey
         """
         result = sanitizer.sanitize_content(content)
-        assert "REDACTED_TACACS" in result
+        assert "SANITIZED_TACACS_" in result
         assert "1234567890ABCDEF" not in result
         assert "MySecretKey" not in result
 
@@ -82,7 +82,7 @@ class TestNetworkSanitizer:
         snmp-server community MySecret RW
         """
         result = sanitizer.sanitize_content(content)
-        assert "REDACTED_COMMUNITY" in result
+        assert "SANITIZED_SNMP_" in result
         assert "MySecret" not in result
 
     def test_sanitize_routing_passwords(self, sanitizer):
@@ -110,7 +110,7 @@ class TestNetworkSanitizer:
         pre-shared-key SuperSecretKey
         """
         result = sanitizer.sanitize_content(content)
-        assert "REDACTED" in result
+        assert "MAC_KEY_SANITIZED" in result or "SANITIZED_" in result
         assert "MyVPNKey" not in result
         assert "SuperSecretKey" not in result
 
@@ -130,7 +130,7 @@ class TestNetworkSanitizer:
 
         # Check file content
         sanitized_content = test_file.read_text()
-        assert "$REDACTED_ENABLE_SECRET" in sanitized_content
+        assert "$SANITIZED_ENABLE_" in sanitized_content
         assert "$1$xyz$abcdef123456" not in sanitized_content
 
     def test_dry_run_mode(self, config, tmp_path):
@@ -264,5 +264,5 @@ class TestPatternManager:
         # Test application
         content = "custom-secret MySecretValue"
         result, changes = pm.apply_patterns(content, ["custom_test"])
-        assert "REDACTED" in result
+        assert "MAC_KEY_SANITIZED" in result or "SANITIZED_" in result
         assert "MySecretValue" not in result

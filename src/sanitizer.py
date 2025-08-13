@@ -358,10 +358,10 @@ class NetworkSanitizer:
         # Username secrets - Fixed to handle each line separately
         username_lines = []
         for line in content.split("\n"):
-            if line.startswith("username "):
+            if "username " in line:
                 # Parse username line correctly
                 username_match = re.match(
-                    r"(username )(\S+)( .*)?(secret|password)( )(\d+)( )(\S+)(.*)?",
+                    r"(\s*username )(\S+)( .*)?(secret|password)( )(\d+)( )(\S+)(.*)?",
                     line,
                 )
                 if username_match:
