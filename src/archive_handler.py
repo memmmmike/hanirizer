@@ -438,7 +438,12 @@ class ArchiveHandler:
         self, source_dir: Path, output_path: Path, password: Optional[str] = None
     ) -> Path:
         """Create a ZIP archive with optional encryption."""
-        import pyminizip
+        if password:
+            try:
+                import pyminizip
+            except ImportError:
+                logger.warning("pyminizip not installed. Creating unencrypted ZIP instead.")
+                password = None
 
         if password:
             # Use pyminizip for password-protected ZIPs

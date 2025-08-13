@@ -5,7 +5,7 @@ import hashlib
 import logging
 import shutil
 from pathlib import Path
-from typing import Dict, List, Tuple, Optional, Set, Any
+from typing import Dict, List, Tuple, Optional, Set, Any, Union
 from dataclasses import dataclass, field
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import time
@@ -54,10 +54,10 @@ class NetworkSanitizer:
         }
         self._hash_cache: Dict[str, str] = {}  # Cache for consistent hashes
 
-    def sanitize_file(self, filepath: str) -> SanitizationResult:
+    def sanitize_file(self, filepath: Union[str, Path]) -> SanitizationResult:
         """Sanitize a single file."""
         start_time = time.time()
-        filepath = Path(filepath)
+        filepath = Path(filepath) if isinstance(filepath, str) else filepath
         result = SanitizationResult(filepath=filepath)
 
         try:
@@ -98,10 +98,10 @@ class NetworkSanitizer:
 
         return result
 
-    def sanitize_directory(self, directory: str) -> List[SanitizationResult]:
+    def sanitize_directory(self, directory: Union[str, Path]) -> List[SanitizationResult]:
         """Sanitize all matching files in a directory."""
-        directory = Path(directory)
-        results = []
+        directory = Path(directory) if isinstance(directory, str) else directory
+        results: List[SanitizationResult] = []
 
         if not directory.exists():
             logger.error(f"Directory not found: {directory}")
