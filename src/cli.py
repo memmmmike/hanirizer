@@ -16,7 +16,9 @@ from .zip_handler import ZipHandler
 from .archive_handler import ArchiveHandler
 
 # Configure logging
-logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
+logging.basicConfig(
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
+)
 logger = logging.getLogger(__name__)
 
 
@@ -29,24 +31,47 @@ def cli():
 
 @cli.command()
 @click.argument("path", type=click.Path(exists=True))
-@click.option("--config", "-c", type=click.Path(exists=True), help="Configuration file path")
+@click.option(
+    "--config", "-c", type=click.Path(exists=True), help="Configuration file path"
+)
 @click.option(
     "--vendor",
     "-v",
     type=click.Choice(["cisco", "paloalto", "juniper", "arista"]),
     help="Use vendor-specific configuration",
 )
-@click.option("--output", "-o", type=click.Path(), help="Output directory (default: in-place)")
+@click.option(
+    "--output", "-o", type=click.Path(), help="Output directory (default: in-place)"
+)
 @click.option("--dry-run", is_flag=True, help="Preview changes without modifying files")
-@click.option("--backup/--no-backup", default=True, help="Create backups before modifying")
-@click.option("--recursive", "-r", is_flag=True, default=True, help="Process directories recursively")
-@click.option("--pattern", "-p", multiple=True, help="File pattern to match (e.g., *.conf)")
+@click.option(
+    "--backup/--no-backup", default=True, help="Create backups before modifying"
+)
+@click.option(
+    "--recursive",
+    "-r",
+    is_flag=True,
+    default=True,
+    help="Process directories recursively",
+)
+@click.option(
+    "--pattern", "-p", multiple=True, help="File pattern to match (e.g., *.conf)"
+)
 @click.option("--verbose", "-v", is_flag=True, help="Verbose output")
 @click.option("--quiet", "-q", is_flag=True, help="Suppress non-error output")
-@click.option("--format", type=click.Choice(["text", "json", "csv"]), default="text", help="Output format")
+@click.option(
+    "--format",
+    type=click.Choice(["text", "json", "csv"]),
+    default="text",
+    help="Output format",
+)
 @click.option("--stats", is_flag=True, help="Show statistics after processing")
-@click.option("--parallel", "-j", type=int, default=4, help="Number of parallel workers")
-@click.option("--zip-output", is_flag=True, help="Create ZIP file with sanitized configs")
+@click.option(
+    "--parallel", "-j", type=int, default=4, help="Number of parallel workers"
+)
+@click.option(
+    "--zip-output", is_flag=True, help="Create ZIP file with sanitized configs"
+)
 def sanitize(
     path,
     config,
@@ -106,7 +131,9 @@ def sanitize(
             if zip_handler.is_zip_file(path):
                 zip_info = zip_handler.get_zip_info(path)
                 if not quiet:
-                    click.echo(f"Found {zip_info['config_files']} config files in ZIP ({zip_info['size_mb']} MB)")
+                    click.echo(
+                        f"Found {zip_info['config_files']} config files in ZIP ({zip_info['size_mb']} MB)"
+                    )
 
                 # Process ZIP file
                 zip_results = sanitizer.sanitize_zip_file(str(path), output)
@@ -114,7 +141,9 @@ def sanitize(
                 # Convert ZIP results to standard results format for output
                 results = []
                 if zip_results.get("output_zip"):
-                    click.echo(f"Created sanitized ZIP: {Path(zip_results['output_zip']).name}")
+                    click.echo(
+                        f"Created sanitized ZIP: {Path(zip_results['output_zip']).name}"
+                    )
 
                 # Create a summary result
                 summary_result = type(
@@ -127,7 +156,9 @@ def sanitize(
                             f"ZIP: {zip_results['sanitized_files']}/{zip_results['extracted_files']} files sanitized"
                         ],
                         "change_count": zip_results["sanitized_files"],
-                        "error": zip_results["errors"][0] if zip_results["errors"] else None,
+                        "error": (
+                            zip_results["errors"][0] if zip_results["errors"] else None
+                        ),
                     },
                 )()
                 results = [summary_result]
@@ -186,7 +217,12 @@ def restore(path, backup_dir, date, list_only, verbose):
     backup_config = type(
         "BackupConfig",
         (),
-        {"enabled": True, "directory": backup_dir or ".backups", "retention_days": 30, "compression": True},
+        {
+            "enabled": True,
+            "directory": backup_dir or ".backups",
+            "retention_days": 30,
+            "compression": True,
+        },
     )()
 
     manager = BackupManager(backup_config)
@@ -203,7 +239,9 @@ def restore(path, backup_dir, date, list_only, verbose):
         click.echo(f"Available backups ({len(backups)} total):")
         for backup in backups:
             size_mb = backup["size"] / (1024 * 1024)
-            click.echo(f"  {backup['timestamp']} - {backup['original_path']} ({size_mb:.2f} MB)")
+            click.echo(
+                f"  {backup['timestamp']} - {backup['original_path']} ({size_mb:.2f} MB)"
+            )
     else:
         # Restore files
         if path.is_file():
@@ -257,9 +295,16 @@ def validate(config_file):
 @cli.command()
 @click.option("--output", "-o", type=click.Path(), help="Output file path")
 @click.option(
-    "--vendor", type=click.Choice(["cisco", "paloalto", "juniper", "arista"]), help="Generate vendor-specific config"
+    "--vendor",
+    type=click.Choice(["cisco", "paloalto", "juniper", "arista"]),
+    help="Generate vendor-specific config",
 )
-@click.option("--format", type=click.Choice(["json", "yaml"]), default="json", help="Output format")
+@click.option(
+    "--format",
+    type=click.Choice(["json", "yaml"]),
+    default="json",
+    help="Output format",
+)
 def generate_config(output, vendor, format):
     """Generate a sample configuration file."""
 
@@ -299,15 +344,21 @@ def generate_config(output, vendor, format):
         if format == "yaml":
             import yaml
 
-            click.echo(yaml.dump(config_dict, default_flow_style=False, sort_keys=False))
+            click.echo(
+                yaml.dump(config_dict, default_flow_style=False, sort_keys=False)
+            )
         else:
             click.echo(json.dumps(config_dict, indent=2))
 
 
 @cli.command()
 @click.argument("archive_file", type=click.Path(exists=True))
-@click.option("--output", "-o", type=click.Path(), help="Output directory for sanitized files")
-@click.option("--config", "-c", type=click.Path(exists=True), help="Configuration file path")
+@click.option(
+    "--output", "-o", type=click.Path(), help="Output directory for sanitized files"
+)
+@click.option(
+    "--config", "-c", type=click.Path(exists=True), help="Configuration file path"
+)
 @click.option(
     "--vendor",
     "-v",
@@ -316,17 +367,35 @@ def generate_config(output, vendor, format):
 )
 @click.option("--dry-run", is_flag=True, help="Preview changes without creating output")
 @click.option("--verbose", "-v", is_flag=True, help="Verbose output")
-@click.option("--in-memory/--extract", default=True, help="Process files in memory (default) or extract to disk first")
+@click.option(
+    "--in-memory/--extract",
+    default=True,
+    help="Process files in memory (default) or extract to disk first",
+)
 @click.option(
     "--output-format",
     type=click.Choice(["folder", "zip", "7z", "tar.gz"]),
     default="folder",
     help="Output format: folder (default), zip, 7z, or tar.gz",
 )
-@click.option("--password", "-p", help="Password for encrypted archives (will prompt if needed)")
-@click.option("--output-password", help="Password for output archive (if creating encrypted archive)")
+@click.option(
+    "--password", "-p", help="Password for encrypted archives (will prompt if needed)"
+)
+@click.option(
+    "--output-password",
+    help="Password for output archive (if creating encrypted archive)",
+)
 def sanitize_archive(
-    archive_file, output, config, vendor, dry_run, verbose, in_memory, output_format, password, output_password
+    archive_file,
+    output,
+    config,
+    vendor,
+    dry_run,
+    verbose,
+    in_memory,
+    output_format,
+    password,
+    output_password,
 ):
     """Sanitize network configurations within any supported archive format.
 
@@ -376,7 +445,9 @@ def sanitize_archive(
                 click.echo(f"  ... and {len(archive_info['files']) - 10} more")
 
     if dry_run:
-        click.echo(f"\n*** DRY RUN - Would process {archive_info['file_count']} files ***")
+        click.echo(
+            f"\n*** DRY RUN - Would process {archive_info['file_count']} files ***"
+        )
         return
 
     # Process archive file
@@ -386,7 +457,11 @@ def sanitize_archive(
         click.echo(f"Processing archive with output format: {output_format}")
 
     results = sanitizer.sanitize_archive_file(
-        str(archive_path), output, archive_format=output_format, password=password, output_password=output_password
+        str(archive_path),
+        output,
+        archive_format=output_format,
+        password=password,
+        output_password=output_password,
     )
 
     # Display results
@@ -445,7 +520,9 @@ def output_text(results, dry_run, show_stats, duration):
         if result.error:
             click.echo(f"✗ Error: {result.filepath.name} - {result.error}", err=True)
         elif result.modified:
-            click.echo(f"✓ Modified: {result.filepath.name} ({result.change_count} changes)")
+            click.echo(
+                f"✓ Modified: {result.filepath.name} ({result.change_count} changes)"
+            )
         else:
             if show_stats:
                 click.echo(f"○ No changes: {result.filepath.name}")

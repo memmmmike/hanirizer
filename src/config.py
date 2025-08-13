@@ -48,7 +48,9 @@ class Config:
     personal_accounts: Set[str] = field(default_factory=set)
     patterns: Dict[str, Pattern] = field(default_factory=dict)
     backup: BackupConfig = field(default_factory=BackupConfig)
-    file_patterns: List[str] = field(default_factory=lambda: ["*.txt", "*.conf", "*.config", "*.cfg"])
+    file_patterns: List[str] = field(
+        default_factory=lambda: ["*.txt", "*.conf", "*.config", "*.cfg"]
+    )
     recursive: bool = True
     preserve_structure: bool = True
     verbose: bool = False
@@ -87,7 +89,8 @@ class Config:
         # Load patterns
         if "patterns" in data:
             config.patterns = {
-                name: Pattern.from_dict(name, pattern_data) for name, pattern_data in data["patterns"].items()
+                name: Pattern.from_dict(name, pattern_data)
+                for name, pattern_data in data["patterns"].items()
             }
 
         # Load backup config
@@ -95,7 +98,14 @@ class Config:
             config.backup = BackupConfig.from_dict(data["backup"])
 
         # Load other settings
-        for key in ["file_patterns", "recursive", "preserve_structure", "verbose", "dry_run", "parallel_workers"]:
+        for key in [
+            "file_patterns",
+            "recursive",
+            "preserve_structure",
+            "verbose",
+            "dry_run",
+            "parallel_workers",
+        ]:
             if key in data:
                 setattr(config, key, data[key])
 
@@ -160,7 +170,16 @@ class VendorConfig:
 
     VENDORS = {
         "cisco": {
-            "service_accounts": ["admin", "cisco", "enable", "operator", "monitor", "rancid", "netconf", "restconf"],
+            "service_accounts": [
+                "admin",
+                "cisco",
+                "enable",
+                "operator",
+                "monitor",
+                "rancid",
+                "netconf",
+                "restconf",
+            ],
             "patterns": {
                 "enable_secret": {
                     "pattern": r"enable secret \d+ (\S+)",
@@ -170,8 +189,14 @@ class VendorConfig:
                     "pattern": r"username (\S+) .*secret \d+ (\S+)",
                     "replacement": r"username \1 secret 5 $REDACTED_SECRET",
                 },
-                "tacacs_key": {"pattern": r"tacacs.*key \d+ (\S+)", "replacement": "key 7 REDACTED_TACACS_KEY"},
-                "radius_key": {"pattern": r"radius.*key \d+ (\S+)", "replacement": "key 7 REDACTED_RADIUS_KEY"},
+                "tacacs_key": {
+                    "pattern": r"tacacs.*key \d+ (\S+)",
+                    "replacement": "key 7 REDACTED_TACACS_KEY",
+                },
+                "radius_key": {
+                    "pattern": r"radius.*key \d+ (\S+)",
+                    "replacement": "key 7 REDACTED_RADIUS_KEY",
+                },
                 "ospf_auth": {
                     "pattern": r"message-digest-key \d+ md5 \d+ (\S+)",
                     "replacement": "message-digest-key 1 md5 7 REDACTED_OSPF_KEY",
@@ -189,7 +214,10 @@ class VendorConfig:
         "paloalto": {
             "service_accounts": ["admin", "panorama", "api", "monitor", "operator"],
             "patterns": {
-                "phash": {"pattern": r"<phash>[^<]+</phash>", "replacement": "<phash>$REDACTED_HASH</phash>"},
+                "phash": {
+                    "pattern": r"<phash>[^<]+</phash>",
+                    "replacement": "<phash>$REDACTED_HASH</phash>",
+                },
                 "private_key": {
                     "pattern": r"<private-key>[^<]+</private-key>",
                     "replacement": "<private-key>REDACTED_PRIVATE_KEY</private-key>",
@@ -198,11 +226,20 @@ class VendorConfig:
                     "pattern": r"<api-key>[^<]+</api-key>",
                     "replacement": "<api-key>REDACTED_API_KEY</api-key>",
                 },
-                "shared_key": {"pattern": r"<key>[^<]+</key>", "replacement": "<key>REDACTED_KEY</key>"},
+                "shared_key": {
+                    "pattern": r"<key>[^<]+</key>",
+                    "replacement": "<key>REDACTED_KEY</key>",
+                },
             },
         },
         "juniper": {
-            "service_accounts": ["root", "admin", "operator", "read-only", "super-user"],
+            "service_accounts": [
+                "root",
+                "admin",
+                "operator",
+                "read-only",
+                "super-user",
+            ],
             "patterns": {
                 "encrypted_password": {
                     "pattern": r'encrypted-password "([^"]+)"',
@@ -229,7 +266,10 @@ class VendorConfig:
                     "pattern": r"enable password (sha512 )?\S+",
                     "replacement": "enable password sha512 $REDACTED_ENABLE",
                 },
-                "tacacs_key": {"pattern": r"key \d+ (\S+)", "replacement": "key 7 REDACTED_KEY"},
+                "tacacs_key": {
+                    "pattern": r"key \d+ (\S+)",
+                    "replacement": "key 7 REDACTED_KEY",
+                },
             },
         },
     }
@@ -240,7 +280,9 @@ class VendorConfig:
         vendor = vendor.lower()
 
         if vendor not in cls.VENDORS:
-            raise ValueError(f"Unknown vendor: {vendor}. Available: {', '.join(cls.VENDORS.keys())}")
+            raise ValueError(
+                f"Unknown vendor: {vendor}. Available: {', '.join(cls.VENDORS.keys())}"
+            )
 
         vendor_data = cls.VENDORS[vendor]
 

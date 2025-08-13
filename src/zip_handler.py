@@ -14,7 +14,9 @@ logger = logging.getLogger(__name__)
 class ZipHandler:
     """Handles ZIP file extraction, processing, and re-compression."""
 
-    def __init__(self, preserve_structure: bool = True, create_sanitized_zip: bool = True):
+    def __init__(
+        self, preserve_structure: bool = True, create_sanitized_zip: bool = True
+    ):
         """Initialize ZIP handler.
 
         Args:
@@ -33,7 +35,9 @@ class ZipHandler:
         except (zipfile.BadZipFile, FileNotFoundError):
             return False
 
-    def extract_zip(self, zip_path: Path, extract_to: Optional[Path] = None) -> Tuple[Path, List[Path]]:
+    def extract_zip(
+        self, zip_path: Path, extract_to: Optional[Path] = None
+    ) -> Tuple[Path, List[Path]]:
         """Extract ZIP file to temporary directory.
 
         Args:
@@ -60,7 +64,9 @@ class ZipHandler:
                 # Filter for config files
                 config_files = [f for f in file_list if self._is_config_file(f)]
 
-                logger.info(f"Extracting {len(config_files)} config files from {zip_path.name}")
+                logger.info(
+                    f"Extracting {len(config_files)} config files from {zip_path.name}"
+                )
 
                 # Extract only config files
                 for file_info in zip_ref.infolist():
@@ -76,7 +82,9 @@ class ZipHandler:
                                 os.chmod(extracted_path, 0o644)
 
                         except Exception as e:
-                            logger.warning(f"Failed to extract {file_info.filename}: {e}")
+                            logger.warning(
+                                f"Failed to extract {file_info.filename}: {e}"
+                            )
 
         except Exception as e:
             logger.error(f"Failed to extract ZIP file {zip_path}: {e}")
@@ -86,7 +94,10 @@ class ZipHandler:
         return extract_dir, extracted_files
 
     def create_sanitized_zip(
-        self, source_dir: Path, output_path: Path, original_zip_path: Optional[Path] = None
+        self,
+        source_dir: Path,
+        output_path: Path,
+        original_zip_path: Optional[Path] = None,
     ) -> Path:
         """Create a new ZIP file with sanitized configurations.
 
@@ -112,7 +123,9 @@ class ZipHandler:
         created_files = []
 
         try:
-            with zipfile.ZipFile(output_path, "w", zipfile.ZIP_DEFLATED, compresslevel=6) as zip_ref:
+            with zipfile.ZipFile(
+                output_path, "w", zipfile.ZIP_DEFLATED, compresslevel=6
+            ) as zip_ref:
                 # Walk through source directory
                 for file_path in source_dir.rglob("*"):
                     if file_path.is_file() and self._is_config_file(str(file_path)):
@@ -128,14 +141,18 @@ class ZipHandler:
 
                         logger.debug(f"Added {file_path.name} to ZIP as {archive_path}")
 
-            logger.info(f"Created sanitized ZIP: {output_path} ({len(created_files)} files)")
+            logger.info(
+                f"Created sanitized ZIP: {output_path} ({len(created_files)} files)"
+            )
             return output_path
 
         except Exception as e:
             logger.error(f"Failed to create ZIP file {output_path}: {e}")
             raise
 
-    def process_zip_file(self, zip_path: Path, sanitizer, output_dir: Optional[Path] = None) -> Dict[str, Any]:
+    def process_zip_file(
+        self, zip_path: Path, sanitizer, output_dir: Optional[Path] = None
+    ) -> Dict[str, Any]:
         """Process a ZIP file end-to-end: extract, sanitize, re-zip.
 
         Args:
@@ -172,7 +189,9 @@ class ZipHandler:
             sanitization_results = sanitizer.sanitize_directory(str(extract_dir))
 
             # Count successful sanitizations
-            results["sanitized_files"] = sum(1 for r in sanitization_results if r.modified)
+            results["sanitized_files"] = sum(
+                1 for r in sanitization_results if r.modified
+            )
 
             # Collect any errors
             for result in sanitization_results:
@@ -181,7 +200,9 @@ class ZipHandler:
 
             # Create sanitized ZIP if requested
             if self.should_create_zip:
-                sanitized_zip_path = self.create_sanitized_zip(extract_dir, output_dir, zip_path)
+                sanitized_zip_path = self.create_sanitized_zip(
+                    extract_dir, output_dir, zip_path
+                )
                 results["output_zip"] = str(sanitized_zip_path)
 
             logger.info(
@@ -195,7 +216,9 @@ class ZipHandler:
 
         return results
 
-    def process_zip_to_folder(self, zip_path: Path, sanitizer, output_dir: Optional[Path] = None) -> Dict[str, Any]:
+    def process_zip_to_folder(
+        self, zip_path: Path, sanitizer, output_dir: Optional[Path] = None
+    ) -> Dict[str, Any]:
         """Process a ZIP file and extract sanitized files to a folder.
 
         Args:
@@ -239,7 +262,9 @@ class ZipHandler:
 
                     # Read file content from ZIP
                     try:
-                        file_content = input_zip.read(file_info).decode("utf-8", errors="ignore")
+                        file_content = input_zip.read(file_info).decode(
+                            "utf-8", errors="ignore"
+                        )
                     except Exception as e:
                         logger.warning(f"Failed to read {filename}: {e}")
                         # Copy original file if can't read as text
@@ -254,7 +279,9 @@ class ZipHandler:
                     if self._is_config_file(filename):
                         try:
                             # Sanitize content in memory
-                            sanitized_content = sanitizer.sanitize_content(file_content, filename)
+                            sanitized_content = sanitizer.sanitize_content(
+                                file_content, filename
+                            )
 
                             # Check if content was modified
                             if sanitized_content != file_content:
@@ -291,7 +318,9 @@ class ZipHandler:
 
         return results
 
-    def process_zip_in_memory(self, zip_path: Path, sanitizer, output_dir: Optional[Path] = None) -> Dict[str, Any]:
+    def process_zip_in_memory(
+        self, zip_path: Path, sanitizer, output_dir: Optional[Path] = None
+    ) -> Dict[str, Any]:
         """Process a ZIP file entirely in memory without extracting to disk.
 
         Args:
@@ -321,7 +350,9 @@ class ZipHandler:
                 output_path = output_dir
 
             with zipfile.ZipFile(zip_path, "r") as input_zip:
-                with zipfile.ZipFile(output_path, "w", zipfile.ZIP_DEFLATED, compresslevel=6) as output_zip:
+                with zipfile.ZipFile(
+                    output_path, "w", zipfile.ZIP_DEFLATED, compresslevel=6
+                ) as output_zip:
 
                     for file_info in input_zip.infolist():
                         if file_info.is_dir():
@@ -333,7 +364,9 @@ class ZipHandler:
 
                         # Read file content from ZIP
                         try:
-                            file_content = input_zip.read(file_info).decode("utf-8", errors="ignore")
+                            file_content = input_zip.read(file_info).decode(
+                                "utf-8", errors="ignore"
+                            )
                         except Exception as e:
                             logger.warning(f"Failed to read {filename}: {e}")
                             # Copy original file if can't read as text
@@ -346,7 +379,9 @@ class ZipHandler:
                         if self._is_config_file(filename):
                             try:
                                 # Sanitize content in memory
-                                sanitized_content = sanitizer.sanitize_content(file_content, filename)
+                                sanitized_content = sanitizer.sanitize_content(
+                                    file_content, filename
+                                )
 
                                 # Check if content was modified
                                 if sanitized_content != file_content:
@@ -354,14 +389,18 @@ class ZipHandler:
                                     logger.debug(f"Sanitized {filename} in memory")
 
                                 # Write sanitized content to output ZIP
-                                output_zip.writestr(file_info, sanitized_content.encode("utf-8"))
+                                output_zip.writestr(
+                                    file_info, sanitized_content.encode("utf-8")
+                                )
 
                             except Exception as e:
                                 error_msg = f"Failed to sanitize {filename}: {e}"
                                 logger.error(error_msg)
                                 results["errors"].append(error_msg)
                                 # Write original content on error
-                                output_zip.writestr(file_info, file_content.encode("utf-8"))
+                                output_zip.writestr(
+                                    file_info, file_content.encode("utf-8")
+                                )
                         else:
                             # Copy non-config files as-is
                             output_zip.writestr(file_info, file_content.encode("utf-8"))
@@ -380,9 +419,27 @@ class ZipHandler:
 
     def _is_config_file(self, filename: str) -> bool:
         """Check if filename appears to be a network configuration file."""
-        config_extensions = {".txt", ".conf", ".config", ".cfg", ".Config", ".ios", ".nx", ".eos", ".xml"}
+        config_extensions = {
+            ".txt",
+            ".conf",
+            ".config",
+            ".cfg",
+            ".Config",
+            ".ios",
+            ".nx",
+            ".eos",
+            ".xml",
+        }
 
-        config_patterns = ["running", "startup", "config", "conf", "show run", "show config", "cfg"]
+        config_patterns = [
+            "running",
+            "startup",
+            "config",
+            "conf",
+            "show run",
+            "show config",
+            "cfg",
+        ]
 
         filename_lower = filename.lower()
 

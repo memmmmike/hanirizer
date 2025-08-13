@@ -206,7 +206,9 @@ class PatternManager:
             del self.patterns[name]
             del self.compiled_patterns[name]
 
-    def apply_patterns(self, content: str, pattern_names: Optional[List[str]] = None) -> Tuple[str, List[str]]:
+    def apply_patterns(
+        self, content: str, pattern_names: Optional[List[str]] = None
+    ) -> Tuple[str, List[str]]:
         """Apply patterns to content and return sanitized content with changes."""
         changes = []
 
@@ -230,7 +232,9 @@ class PatternManager:
 
                 # Record change if content was modified
                 if content != original_content:
-                    changes.append(f"{pattern.description or pattern_name}: {len(matches)} replaced")
+                    changes.append(
+                        f"{pattern.description or pattern_name}: {len(matches)} replaced"
+                    )
 
         return content, changes
 
@@ -252,7 +256,9 @@ class PatternManager:
                         secrets.append(match)
 
                 if secrets:
-                    detections[pattern_name] = secrets[:10]  # Limit to first 10 for display
+                    detections[pattern_name] = secrets[
+                        :10
+                    ]  # Limit to first 10 for display
 
         return detections
 

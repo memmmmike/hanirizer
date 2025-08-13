@@ -109,27 +109,39 @@ class ArchiveHandler:
     def is_format_supported(self, format_name: str) -> bool:
         """Check if a specific archive format is supported."""
         format_name = format_name.lower()
-        
+
         # Always supported formats (Python standard library)
-        if format_name in ["zip", "tar", "tar.gz", "tar.bz2", "tar.xz", "tgz", "tbz2", "txz"]:
+        if format_name in [
+            "zip",
+            "tar",
+            "tar.gz",
+            "tar.bz2",
+            "tar.xz",
+            "tgz",
+            "tbz2",
+            "txz",
+        ]:
             return True
-        
+
         # 7z support depends on tool availability
         if format_name in ["7z", "7zip"]:
             return self._7z_available
-        
+
         # RAR support depends on tool availability
         if format_name == "rar":
             return self._rar_available
-        
+
         # Compressed file formats
         if format_name in ["gz", "gzip", "bz2", "bzip2", "xz"]:
             return True
-        
+
         return False
 
     def extract_archive(
-        self, archive_path: Path, extract_to: Optional[Path] = None, password: Optional[str] = None
+        self,
+        archive_path: Path,
+        extract_to: Optional[Path] = None,
+        password: Optional[str] = None,
     ) -> Tuple[Path, List[Path]]:
         """Extract any supported archive format.
 
@@ -182,7 +194,10 @@ class ArchiveHandler:
         try:
             with zipfile.ZipFile(zip_path, "r") as zip_ref:
                 # Check if password is needed
-                if zip_ref.namelist() and zip_ref.getinfo(zip_ref.namelist()[0]).flag_bits & 0x1:
+                if (
+                    zip_ref.namelist()
+                    and zip_ref.getinfo(zip_ref.namelist()[0]).flag_bits & 0x1
+                ):
                     if not password:
                         password = self._prompt_for_password(zip_path.name)
 
@@ -201,7 +216,9 @@ class ArchiveHandler:
                             if hasattr(os, "chmod"):
                                 os.chmod(extracted_path, 0o644)
                         except Exception as e:
-                            logger.warning(f"Failed to extract {file_info.filename}: {e}")
+                            logger.warning(
+                                f"Failed to extract {file_info.filename}: {e}"
+                            )
 
         except zipfile.BadZipFile as e:
             raise ValueError(f"Invalid ZIP file: {e}")
@@ -258,7 +275,9 @@ class ArchiveHandler:
     ) -> Tuple[Path, List[Path]]:
         """Extract RAR archive using unrar command."""
         if not self._rar_available:
-            logger.warning("unrar command not available. Install unrar (Linux) or WinRAR (Windows) for RAR support.")
+            logger.warning(
+                "unrar command not available. Install unrar (Linux) or WinRAR (Windows) for RAR support."
+            )
             raise RuntimeError(
                 "RAR support not available. Please install: Linux: 'sudo apt-get install unrar', Mac: 'brew install --cask rar', Windows: 'choco install unrar'"
             )
@@ -291,7 +310,9 @@ class ArchiveHandler:
                 raise ValueError("Incorrect password for encrypted RAR file")
             raise RuntimeError(f"Failed to extract RAR archive: {e.stderr}")
 
-    def _extract_tar(self, tar_path: Path, extract_dir: Path) -> Tuple[Path, List[Path]]:
+    def _extract_tar(
+        self, tar_path: Path, extract_dir: Path
+    ) -> Tuple[Path, List[Path]]:
         """Extract tar archive (supports gz, bz2, xz compression)."""
         extracted_files = []
 
@@ -309,7 +330,9 @@ class ArchiveHandler:
         except Exception as e:
             raise RuntimeError(f"Failed to extract tar archive: {e}")
 
-    def _extract_compressed(self, file_path: Path, extract_dir: Path, compression_type: str) -> Tuple[Path, List[Path]]:
+    def _extract_compressed(
+        self, file_path: Path, extract_dir: Path, compression_type: str
+    ) -> Tuple[Path, List[Path]]:
         """Extract single compressed file (gz, bz2, xz)."""
         import gzip
         import bz2
@@ -345,7 +368,12 @@ class ArchiveHandler:
             return False
 
         try:
-            result = subprocess.run(["7z", "l", str(archive_path)], capture_output=True, text=True, check=False)
+            result = subprocess.run(
+                ["7z", "l", str(archive_path)],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
             return "Enter password" in result.stderr
         except:
             return False
@@ -356,7 +384,12 @@ class ArchiveHandler:
             return False
 
         try:
-            result = subprocess.run(["unrar", "l", str(archive_path)], capture_output=True, text=True, check=False)
+            result = subprocess.run(
+                ["unrar", "l", str(archive_path)],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
             return "encrypted" in result.stdout.lower()
         except:
             return False
@@ -371,7 +404,11 @@ class ArchiveHandler:
             return None
 
     def create_archive(
-        self, source_dir: Path, output_path: Path, archive_format: str = "zip", password: Optional[str] = None
+        self,
+        source_dir: Path,
+        output_path: Path,
+        archive_format: str = "zip",
+        password: Optional[str] = None,
     ) -> Path:
         """Create an archive from a directory.
 
@@ -393,9 +430,13 @@ class ArchiveHandler:
         elif archive_format.startswith("tar"):
             return self._create_tar(source_dir, output_path, archive_format)
         else:
-            raise ValueError(f"Unsupported archive format for creation: {archive_format}")
+            raise ValueError(
+                f"Unsupported archive format for creation: {archive_format}"
+            )
 
-    def _create_zip(self, source_dir: Path, output_path: Path, password: Optional[str] = None) -> Path:
+    def _create_zip(
+        self, source_dir: Path, output_path: Path, password: Optional[str] = None
+    ) -> Path:
         """Create a ZIP archive with optional encryption."""
         import pyminizip
 
@@ -407,11 +448,17 @@ class ArchiveHandler:
                     files_to_compress.append(str(file_path))
 
             pyminizip.compress_multiple(
-                files_to_compress, [str(source_dir)], str(output_path), password, 5  # Compression level
+                files_to_compress,
+                [str(source_dir)],
+                str(output_path),
+                password,
+                5,  # Compression level
             )
         else:
             # Use standard zipfile for non-encrypted ZIPs
-            with zipfile.ZipFile(output_path, "w", zipfile.ZIP_DEFLATED, compresslevel=6) as zip_ref:
+            with zipfile.ZipFile(
+                output_path, "w", zipfile.ZIP_DEFLATED, compresslevel=6
+            ) as zip_ref:
                 for file_path in source_dir.rglob("*"):
                     if file_path.is_file():
                         archive_path = file_path.relative_to(source_dir)
@@ -420,7 +467,9 @@ class ArchiveHandler:
         logger.info(f"Created ZIP archive: {output_path}")
         return output_path
 
-    def _create_7z(self, source_dir: Path, output_path: Path, password: Optional[str] = None) -> Path:
+    def _create_7z(
+        self, source_dir: Path, output_path: Path, password: Optional[str] = None
+    ) -> Path:
         """Create a 7z archive with optional encryption."""
         if not self._7z_available:
             logger.warning("7z command not available. Cannot create 7z archives.")
@@ -441,7 +490,9 @@ class ArchiveHandler:
         except subprocess.CalledProcessError as e:
             raise RuntimeError(f"Failed to create 7z archive: {e.stderr}")
 
-    def _create_tar(self, source_dir: Path, output_path: Path, format_type: str) -> Path:
+    def _create_tar(
+        self, source_dir: Path, output_path: Path, format_type: str
+    ) -> Path:
         """Create a tar archive with optional compression."""
         compression = ""
         if format_type == "tar.gz" or format_type == "tgz":
@@ -503,14 +554,20 @@ class ArchiveHandler:
                         if not file_info.is_dir():
                             info["files"].append(file_info.filename)
                     # Check if encrypted
-                    if zip_ref.namelist() and zip_ref.getinfo(zip_ref.namelist()[0]).flag_bits & 0x1:
+                    if (
+                        zip_ref.namelist()
+                        and zip_ref.getinfo(zip_ref.namelist()[0]).flag_bits & 0x1
+                    ):
                         info["encrypted"] = True
 
             elif archive_type == "7z" and self._7z_available:
                 info["encrypted"] = self._is_password_protected_7z(archive_path)
                 # Get file list
                 result = subprocess.run(
-                    ["7z", "l", "-slt", str(archive_path)], capture_output=True, text=True, check=False
+                    ["7z", "l", "-slt", str(archive_path)],
+                    capture_output=True,
+                    text=True,
+                    check=False,
                 )
                 for line in result.stdout.split("\n"):
                     if line.startswith("Path = "):
@@ -521,7 +578,12 @@ class ArchiveHandler:
             elif archive_type == "rar" and self._rar_available:
                 info["encrypted"] = self._is_password_protected_rar(archive_path)
                 # Get file list
-                result = subprocess.run(["unrar", "lb", str(archive_path)], capture_output=True, text=True, check=False)
+                result = subprocess.run(
+                    ["unrar", "lb", str(archive_path)],
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
                 info["files"] = [f for f in result.stdout.split("\n") if f]
 
             elif archive_type == "tar":

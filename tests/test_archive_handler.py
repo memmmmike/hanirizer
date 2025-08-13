@@ -130,7 +130,9 @@ class TestArchiveHandler:
         assert result.exists()
 
         # Verify with 7z command
-        result = subprocess.run(["7z", "l", str(output_path)], capture_output=True, text=True)
+        result = subprocess.run(
+            ["7z", "l", str(output_path)], capture_output=True, text=True
+        )
         assert result.returncode == 0
 
     def test_password_protected_zip(self, archive_handler, temp_dir):
@@ -171,7 +173,9 @@ class TestArchiveHandler:
         if str(extract_dir).startswith(tempfile.gettempdir()):
             assert not extract_dir.exists()
 
-    @pytest.mark.skipif(check_7z_available(), reason="Test for when 7z is NOT installed")
+    @pytest.mark.skipif(
+        check_7z_available(), reason="Test for when 7z is NOT installed"
+    )
     def test_7z_not_available_error(self, archive_handler, temp_dir):
         """Test appropriate error when 7z is not available."""
         if archive_handler._7z_available:
@@ -180,7 +184,9 @@ class TestArchiveHandler:
         with pytest.raises(RuntimeError, match="7z support not available"):
             archive_handler.create_archive(temp_dir, temp_dir / "test.7z", "7z")
 
-    @pytest.mark.skipif(check_unrar_available(), reason="Test for when unrar is NOT installed")
+    @pytest.mark.skipif(
+        check_unrar_available(), reason="Test for when unrar is NOT installed"
+    )
     def test_rar_not_available_error(self, archive_handler, temp_dir):
         """Test appropriate error when unrar is not available."""
         if archive_handler._rar_available:

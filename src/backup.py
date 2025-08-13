@@ -53,9 +53,13 @@ class BackupManager:
             file_hash = self._calculate_hash(filepath)[:8]
 
             if self.compression:
-                backup_name = f"{filepath.stem}_{timestamp}_{file_hash}.{filepath.suffix}.gz"
+                backup_name = (
+                    f"{filepath.stem}_{timestamp}_{file_hash}.{filepath.suffix}.gz"
+                )
             else:
-                backup_name = f"{filepath.stem}_{timestamp}_{file_hash}{filepath.suffix}"
+                backup_name = (
+                    f"{filepath.stem}_{timestamp}_{file_hash}{filepath.suffix}"
+                )
 
             backup_path = self.backup_dir / backup_name
 
@@ -84,7 +88,9 @@ class BackupManager:
             logger.error(f"Failed to create backup for {filepath}: {e}")
             return None
 
-    def restore_file(self, original_path: Path, backup_date: Optional[str] = None) -> bool:
+    def restore_file(
+        self, original_path: Path, backup_date: Optional[str] = None
+    ) -> bool:
         """Restore a file from backup."""
         try:
             # Find matching backup
@@ -118,7 +124,9 @@ class BackupManager:
         for backup_path, info in self.metadata["backups"].items():
             original_path = Path(info["original_path"])
 
-            if original_path.parent == directory or original_path.is_relative_to(directory):
+            if original_path.parent == directory or original_path.is_relative_to(
+                directory
+            ):
                 results[str(original_path)] = self.restore_file(original_path)
 
         return results
@@ -161,7 +169,9 @@ class BackupManager:
             self._save_metadata()
             logger.info(f"Removed {removed_count} old backups")
 
-    def _find_backup(self, original_path: Path, backup_date: Optional[str] = None) -> Optional[Path]:
+    def _find_backup(
+        self, original_path: Path, backup_date: Optional[str] = None
+    ) -> Optional[Path]:
         """Find a backup for a given file."""
         matching_backups = []
 
@@ -190,7 +200,12 @@ class BackupManager:
     def get_backup_stats(self) -> Dict[str, Any]:
         """Get backup statistics."""
         if not self.metadata["backups"]:
-            return {"total_backups": 0, "total_size": 0, "oldest_backup": None, "newest_backup": None}
+            return {
+                "total_backups": 0,
+                "total_size": 0,
+                "oldest_backup": None,
+                "newest_backup": None,
+            }
 
         total_size = sum(info["size"] for info in self.metadata["backups"].values())
         timestamps = [info["timestamp"] for info in self.metadata["backups"].values()]

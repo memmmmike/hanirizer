@@ -42,9 +42,16 @@ class NetworkSanitizer:
         """Initialize sanitizer with configuration."""
         self.config = config
         self.pattern_manager = PatternManager(config)
-        self.backup_manager = BackupManager(config.backup) if config.backup.enabled else None
+        self.backup_manager = (
+            BackupManager(config.backup) if config.backup.enabled else None
+        )
         self._personal_user_mapping: Dict[str, str] = {}
-        self._stats = {"files_processed": 0, "files_modified": 0, "total_changes": 0, "errors": 0}
+        self._stats = {
+            "files_processed": 0,
+            "files_modified": 0,
+            "total_changes": 0,
+            "errors": 0,
+        }
         self._hash_cache: Dict[str, str] = {}  # Cache for consistent hashes
 
     def sanitize_file(self, filepath: str) -> SanitizationResult:
@@ -121,7 +128,11 @@ class NetworkSanitizer:
         return results
 
     def sanitize_zip_file(
-        self, zip_path: str, output_dir: Optional[str] = None, in_memory: bool = True, output_format: str = "folder"
+        self,
+        zip_path: str,
+        output_dir: Optional[str] = None,
+        in_memory: bool = True,
+        output_format: str = "folder",
     ) -> Dict[str, Any]:
         """Sanitize configurations within a ZIP file.
 
@@ -142,12 +153,17 @@ class NetworkSanitizer:
         output_dir_path = Path(output_dir) if output_dir else None
 
         with ZipHandler(
-            preserve_structure=self.config.preserve_structure, create_sanitized_zip=(output_format == "zip")
+            preserve_structure=self.config.preserve_structure,
+            create_sanitized_zip=(output_format == "zip"),
         ) as zip_handler:
             if output_format == "folder":
-                return zip_handler.process_zip_to_folder(zip_path, self, output_dir_path)
+                return zip_handler.process_zip_to_folder(
+                    zip_path, self, output_dir_path
+                )
             elif in_memory:
-                return zip_handler.process_zip_in_memory(zip_path, self, output_dir_path)
+                return zip_handler.process_zip_in_memory(
+                    zip_path, self, output_dir_path
+                )
             else:
                 return zip_handler.process_zip_file(zip_path, self, output_dir_path)
 
@@ -192,17 +208,23 @@ class NetworkSanitizer:
         with ArchiveHandler(password=password) as archive_handler:
             try:
                 # Extract archive
-                extract_dir, extracted_files = archive_handler.extract_archive(archive_path)
+                extract_dir, extracted_files = archive_handler.extract_archive(
+                    archive_path
+                )
                 results["extracted_files"] = len(extracted_files)
 
                 # Sanitize extracted files
                 sanitization_results = self.sanitize_directory(str(extract_dir))
-                results["sanitized_files"] = sum(1 for r in sanitization_results if r.modified)
+                results["sanitized_files"] = sum(
+                    1 for r in sanitization_results if r.modified
+                )
 
                 # Collect errors
                 for result in sanitization_results:
                     if result.error:
-                        results["errors"].append(f"{result.filepath.name}: {result.error}")
+                        results["errors"].append(
+                            f"{result.filepath.name}: {result.error}"
+                        )
 
                 # Create output
                 if output_dir:
@@ -235,10 +257,15 @@ class NetworkSanitizer:
                     elif archive_format == "tar.gz":
                         output_path = output_base / f"{base_name}_sanitized.tar.gz"
                     else:
-                        output_path = output_base / f"{base_name}_sanitized.{archive_format}"
+                        output_path = (
+                            output_base / f"{base_name}_sanitized.{archive_format}"
+                        )
 
                     archive_handler.create_archive(
-                        extract_dir, output_path, archive_format=archive_format, password=output_password
+                        extract_dir,
+                        output_path,
+                        archive_format=archive_format,
+                        password=output_password,
                     )
                     results["output_path"] = str(output_path)
 
@@ -295,7 +322,9 @@ class NetworkSanitizer:
         for username in self.config.personal_accounts:
             if username in content:
                 if username not in self._personal_user_mapping:
-                    self._personal_user_mapping[username] = f"netadmin{personal_user_counter}"
+                    self._personal_user_mapping[username] = (
+                        f"netadmin{personal_user_counter}"
+                    )
                     personal_user_counter += 1
 
                 replacement = self._personal_user_mapping[username]
@@ -303,7 +332,9 @@ class NetworkSanitizer:
                 content = content.replace(username, replacement)
 
                 if count > 0:
-                    changes.append(f"Username {username} -> {replacement} ({count} occurrences)")
+                    changes.append(
+                        f"Username {username} -> {replacement} ({count} occurrences)"
+                    )
 
         return content, changes
 
@@ -312,7 +343,9 @@ class NetworkSanitizer:
         changes = []
 
         # Enable secrets (Type 5, 7, 9)
-        pattern = re.compile(r"(enable (?:secret|password) )(\d+)( \$?\S+)", re.IGNORECASE)
+        pattern = re.compile(
+            r"(enable (?:secret|password) )(\d+)( \$?\S+)", re.IGNORECASE
+        )
         matches = pattern.findall(content)
         if matches:
             # Generate consistent hash like original
@@ -325,7 +358,10 @@ class NetworkSanitizer:
         for line in content.split("\n"):
             if line.startswith("username "):
                 # Parse username line correctly
-                username_match = re.match(r"(username )(\S+)( .*)?(secret|password)( )(\d+)( )(\S+)(.*)?", line)
+                username_match = re.match(
+                    r"(username )(\S+)( .*)?(secret|password)( )(\d+)( )(\S+)(.*)?",
+                    line,
+                )
                 if username_match:
                     username = username_match.group(2)
                     # Generate consistent hash
@@ -362,7 +398,10 @@ class NetworkSanitizer:
             keys_replaced = 0
 
             for i, line in enumerate(lines):
-                if f"{service} server" in line.lower() or f"{service}-server" in line.lower():
+                if (
+                    f"{service} server" in line.lower()
+                    or f"{service}-server" in line.lower()
+                ):
                     in_server_block = True
                 elif line and not line.startswith(" ") and not line.startswith("\t"):
                     in_server_block = False
@@ -370,7 +409,9 @@ class NetworkSanitizer:
                 if in_server_block and "key" in line:
                     match = pattern.match(line)
                     if match:
-                        key_hash = self._generate_consistent_hash(f"{service.upper()}_KEY")
+                        key_hash = self._generate_consistent_hash(
+                            f"{service.upper()}_KEY"
+                        )
                         line = f"{match.group(1)}{match.group(2)} SANITIZED_{service.upper()}_{key_hash}"
                         keys_replaced += 1
 
@@ -414,8 +455,14 @@ class NetworkSanitizer:
 
         # BGP/OSPF/EIGRP passwords
         routing_patterns = [
-            (r"neighbor (\S+) password \d+ (\S+)", r"neighbor \1 password 7 REDACTED_BGP_PASS"),
-            (r"message-digest-key \d+ md5 \d+ (\S+)", r"message-digest-key 1 md5 7 REDACTED_OSPF_KEY"),
+            (
+                r"neighbor (\S+) password \d+ (\S+)",
+                r"neighbor \1 password 7 REDACTED_BGP_PASS",
+            ),
+            (
+                r"message-digest-key \d+ md5 \d+ (\S+)",
+                r"message-digest-key 1 md5 7 REDACTED_OSPF_KEY",
+            ),
             (
                 r"authentication mode md5.*key-string \d+ (\S+)",
                 r"authentication mode md5 key-string 7 REDACTED_AUTH_KEY",
@@ -427,7 +474,11 @@ class NetworkSanitizer:
             matches = pattern.findall(content)
             if matches:
                 content = pattern.sub(replacement, content)
-                protocol = "BGP" if "neighbor" in pattern_str else "OSPF" if "message-digest" in pattern_str else "AUTH"
+                protocol = (
+                    "BGP"
+                    if "neighbor" in pattern_str
+                    else "OSPF" if "message-digest" in pattern_str else "AUTH"
+                )
                 changes.append(f"{protocol} passwords: {len(matches)} replaced")
 
         return content, changes
@@ -447,7 +498,9 @@ class NetworkSanitizer:
 
             if matches:
                 content = regex.sub(pattern_obj.replacement, content)
-                changes.append(f"Custom pattern '{pattern_name}': {len(matches)} replaced")
+                changes.append(
+                    f"Custom pattern '{pattern_name}': {len(matches)} replaced"
+                )
 
         return content, changes
 
@@ -484,7 +537,10 @@ class NetworkSanitizer:
         results = []
 
         with ThreadPoolExecutor(max_workers=self.config.parallel_workers) as executor:
-            future_to_file = {executor.submit(self.sanitize_file, filepath): filepath for filepath in files}
+            future_to_file = {
+                executor.submit(self.sanitize_file, filepath): filepath
+                for filepath in files
+            }
 
             for i, future in enumerate(as_completed(future_to_file), 1):
                 filepath = future_to_file[future]
@@ -540,6 +596,8 @@ class NetworkSanitizer:
                 print("\nTop modified files:")
                 for result in top_changed:
                     if result.modified:
-                        print(f"  - {result.filepath.name}: {result.change_count} changes")
+                        print(
+                            f"  - {result.filepath.name}: {result.change_count} changes"
+                        )
 
         print("=" * 60)
