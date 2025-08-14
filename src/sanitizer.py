@@ -1,16 +1,15 @@
 """Main sanitizer implementation."""
 
 import re
-import hashlib
 import logging
 import shutil
 from pathlib import Path
-from typing import Dict, List, Tuple, Optional, Set, Any, Union
+from typing import Dict, List, Tuple, Optional, Any, Union
 from dataclasses import dataclass, field
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import time
 
-from .config import Config, Pattern
+from .config import Config
 from .backup import BackupManager
 from .patterns import PatternManager
 from .zip_handler import ZipHandler
@@ -306,7 +305,6 @@ class NetworkSanitizer:
     def _sanitize_content(self, content: str, filename: str) -> Tuple[str, List[str]]:
         """Internal method to sanitize content."""
         changes = []
-        original_content = content
 
         # Reset personal user mapping for each file
         self._personal_user_mapping = {}

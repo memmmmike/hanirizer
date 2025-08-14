@@ -7,7 +7,7 @@ import shutil
 import os
 import subprocess
 from pathlib import Path
-from typing import List, Optional, Tuple, Dict, Any, Union
+from typing import List, Optional, Tuple, Dict, Any
 import logging
 import getpass
 
@@ -254,7 +254,7 @@ class ArchiveHandler:
                 cmd.append(f"-p{password}")
 
         try:
-            result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+            subprocess.run(cmd, capture_output=True, text=True, check=True)
 
             # Get list of extracted files
             extracted_files = []
@@ -294,7 +294,7 @@ class ArchiveHandler:
                 cmd.insert(2, f"-p{password}")
 
         try:
-            result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+            subprocess.run(cmd, capture_output=True, text=True, check=True)
 
             # Get list of extracted files
             extracted_files = []
@@ -375,7 +375,7 @@ class ArchiveHandler:
                 check=False,
             )
             return "Enter password" in result.stderr
-        except:
+        except Exception:
             return False
 
     def _is_password_protected_rar(self, archive_path: Path) -> bool:
@@ -391,7 +391,7 @@ class ArchiveHandler:
                 check=False,
             )
             return "encrypted" in result.stdout.lower()
-        except:
+        except Exception:
             return False
 
     def _prompt_for_password(self, archive_name: str) -> Optional[str]:

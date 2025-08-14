@@ -5,7 +5,6 @@ import tempfile
 import shutil
 import subprocess
 from pathlib import Path
-from unittest.mock import Mock, patch
 import zipfile
 import tarfile
 

@@ -5,7 +5,6 @@ import json
 import sys
 import logging
 from pathlib import Path
-from typing import Optional
 import time
 
 from . import __version__
@@ -270,7 +269,7 @@ def validate(config_file):
 
     try:
         config = Config.from_file(config_file)
-        click.echo(f"✓ Configuration is valid")
+        click.echo("✓ Configuration is valid")
         click.echo(f"  Service accounts: {len(config.service_accounts)}")
         click.echo(f"  Personal accounts: {len(config.personal_accounts)}")
         click.echo(f"  Custom patterns: {len(config.patterns)}")
@@ -429,7 +428,7 @@ def sanitize_archive(
         click.echo(f"Archive file: {archive_path.name}")
         click.echo(f"Archive type: {archive_info['type']}")
         if archive_info.get("encrypted"):
-            click.echo(f"Encrypted: Yes")
+            click.echo("Encrypted: Yes")
         click.echo(f"Total files: {archive_info['file_count']}")
         click.echo(f"Size: {archive_info['size_mb']} MB")
 
@@ -465,7 +464,7 @@ def sanitize_archive(
     )
 
     # Display results
-    click.echo(f"\nProcessing complete:")
+    click.echo("\nProcessing complete:")
 
     if output_format == "folder":
         click.echo(f"Processed files: {results.get('processed_files', 0)}")

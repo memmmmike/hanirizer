@@ -1,6 +1,5 @@
 """Backup and restore functionality."""
 
-import os
 import shutil
 import gzip
 import json

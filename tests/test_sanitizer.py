@@ -1,11 +1,8 @@
 """Tests for the network sanitizer."""
 
 import pytest
-import tempfile
-from pathlib import Path
-import json
 
-from src.sanitizer import NetworkSanitizer, SanitizationResult
+from src.sanitizer import NetworkSanitizer
 from src.config import Config
 from src.patterns import PatternManager
 
@@ -196,7 +193,7 @@ class TestNetworkSanitizer:
         (tmp_path / "config2.txt").write_text("no secrets here")
 
         # Sanitize directory
-        results = sanitizer.sanitize_directory(str(tmp_path))
+        sanitizer.sanitize_directory(str(tmp_path))
 
         # Check statistics
         stats = sanitizer.get_stats()

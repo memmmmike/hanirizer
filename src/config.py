@@ -2,7 +2,6 @@
 
 import json
 import yaml
-import os
 from pathlib import Path
 from typing import Dict, List, Set, Optional, Any
 from dataclasses import dataclass, field
