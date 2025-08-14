@@ -294,7 +294,12 @@ class NetworkSanitizer:
         import hashlib
 
         base_string = f"{secret_type}_{value}_{len(self._hash_cache)}"
-        hash_obj = hashlib.md5(base_string.encode(), usedforsecurity=False)
+        try:
+            # Python 3.9+ supports usedforsecurity parameter
+            hash_obj = hashlib.md5(base_string.encode(), usedforsecurity=False)
+        except TypeError:
+            # Python 3.8 doesn't support usedforsecurity parameter
+            hash_obj = hashlib.md5(base_string.encode())
         # Format like original: 12 character hex string in uppercase
         hash_value = hash_obj.hexdigest()[:12].upper()
 

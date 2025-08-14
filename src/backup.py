@@ -199,7 +199,12 @@ class BackupManager:
 
     def _calculate_hash(self, filepath: Path) -> str:
         """Calculate file hash for identification."""
-        hasher = hashlib.md5(usedforsecurity=False)
+        try:
+            # Python 3.9+ supports usedforsecurity parameter
+            hasher = hashlib.md5(usedforsecurity=False)
+        except TypeError:
+            # Python 3.8 doesn't support usedforsecurity parameter
+            hasher = hashlib.md5()
 
         with open(filepath, "rb") as f:
             for chunk in iter(lambda: f.read(4096), b""):
