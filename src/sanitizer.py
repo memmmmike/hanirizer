@@ -393,23 +393,30 @@ class NetworkSanitizer:
         # TACACS/RADIUS keys - Handle both server blocks and global commands
         for service in ["tacacs", "radius"]:
             key_hash = self._generate_consistent_hash(f"{service.upper()}_KEY")
-            
+
             # Pattern for server command keys (e.g., "tacacs-server key secret")
             pattern1 = re.compile(rf"({service}-server key )(\S+)", re.IGNORECASE)
             # Pattern for server block keys (e.g., "tacacs server X\n key 7 secret")
             # Must be in a server block context, not generic "key" lines
-            pattern2 = re.compile(rf"({service} server .+\n\s+key )(\d+)( )(\S+)", re.IGNORECASE | re.MULTILINE)
-            
+            pattern2 = re.compile(
+                rf"({service} server .+\n\s+key )(\d+)( )(\S+)",
+                re.IGNORECASE | re.MULTILINE,
+            )
+
             # Replace global server keys
             matches1 = pattern1.findall(content)
             if matches1:
-                content = pattern1.sub(rf"\1SANITIZED_{service.upper()}_{key_hash}", content)
-            
+                content = pattern1.sub(
+                    rf"\1SANITIZED_{service.upper()}_{key_hash}", content
+                )
+
             # Replace server block keys
             matches2 = pattern2.findall(content)
             if matches2:
-                content = pattern2.sub(rf"\1\2 SANITIZED_{service.upper()}_{key_hash}", content)
-            
+                content = pattern2.sub(
+                    rf"\1\2 SANITIZED_{service.upper()}_{key_hash}", content
+                )
+
             total_replaced = len(matches1) + len(matches2)
             if total_replaced > 0:
                 changes.append(f"{service.upper()} keys: {total_replaced} replaced")
@@ -417,7 +424,7 @@ class NetworkSanitizer:
         # SNMP community strings
         pattern = re.compile(r"(snmp-server community )(\S+)(\s+\S+)?")
         snmp_hash = self._generate_consistent_hash("SNMP")
-        
+
         def replace_snmp(match):
             community = match.group(2)
             rest = match.group(3) or ""
@@ -432,21 +439,21 @@ class NetworkSanitizer:
 
         # Pre-shared keys - Handle various formats
         psk_hash = self._generate_consistent_hash("PSK")
-        
+
         # MKA pre-shared keys
         mka_pattern = re.compile(r"(mka pre-shared-key key-chain )(\S+)")
         mka_matches = mka_pattern.findall(content)
         if mka_matches:
             content = mka_pattern.sub(r"\1MAC_KEY_SANITIZED", content)
             changes.append(f"MKA pre-shared keys: {len(mka_matches)} replaced")
-        
+
         # Crypto ISAKMP keys
         isakmp_pattern = re.compile(r"(crypto isakmp key )(\S+)( .*)")
         isakmp_matches = isakmp_pattern.findall(content)
         if isakmp_matches:
             content = isakmp_pattern.sub(rf"\1SANITIZED_PSK_{psk_hash}\3", content)
             changes.append(f"ISAKMP keys: {len(isakmp_matches)} replaced")
-        
+
         # Standalone pre-shared-key lines
         psk_pattern = re.compile(r"^(\s*pre-shared-key )(\S+)", re.MULTILINE)
         psk_matches = psk_pattern.findall(content)
