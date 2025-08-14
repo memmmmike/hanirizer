@@ -284,17 +284,9 @@ class PatternManager:
     def generate_hash(self, secret_type: str, index: int = 0) -> str:
         """Generate consistent hash for replacement values."""
         base = f"{secret_type}_{index}"
-        import sys
-
-        # Python 3.8 doesn't support usedforsecurity parameter
-        if sys.version_info >= (3, 9):
-            return (
-                hashlib.md5(base.encode(), usedforsecurity=False)
-                .hexdigest()[:12]
-                .upper()
-            )
-        else:
-            return hashlib.md5(base.encode()).hexdigest()[:12].upper()  # nosec B324
+        return (
+            hashlib.md5(base.encode(), usedforsecurity=False).hexdigest()[:12].upper()
+        )
 
     def export_patterns(self) -> Dict[str, Dict]:
         """Export patterns as dictionary."""
