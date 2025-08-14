@@ -264,5 +264,5 @@ class TestPatternManager:
         # Test application
         content = "custom-secret MySecretValue"
         result, changes = pm.apply_patterns(content, ["custom_test"])
-        assert "MAC_KEY_SANITIZED" in result or "SANITIZED_" in result
+        assert "REDACTED" in result
         assert "MySecretValue" not in result

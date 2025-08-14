@@ -390,46 +390,39 @@ class NetworkSanitizer:
         if username_lines:
             changes.append(f"User secrets: {len(username_lines)} replaced")
 
-        # TACACS/RADIUS keys - Fixed pattern to match indented keys
+        # TACACS/RADIUS keys - Handle both server blocks and global commands
         for service in ["tacacs", "radius"]:
-            # Match both inline and indented key formats
-            pattern = re.compile(rf"(\s*key )(\d+)( )(\S+)", re.MULTILINE)
-            lines = content.split("\n")
-            in_server_block = False
-            modified_lines = []
-            keys_replaced = 0
-
-            for i, line in enumerate(lines):
-                if (
-                    f"{service} server" in line.lower()
-                    or f"{service}-server" in line.lower()
-                ):
-                    in_server_block = True
-                elif line and not line.startswith(" ") and not line.startswith("\t"):
-                    in_server_block = False
-
-                if in_server_block and "key" in line:
-                    match = pattern.match(line)
-                    if match:
-                        key_hash = self._generate_consistent_hash(
-                            f"{service.upper()}_KEY"
-                        )
-                        line = f"{match.group(1)}{match.group(2)} SANITIZED_{service.upper()}_{key_hash}"
-                        keys_replaced += 1
-
-                modified_lines.append(line)
-
-            if keys_replaced > 0:
-                content = "\n".join(modified_lines)
-                changes.append(f"{service.upper()} keys: {keys_replaced} replaced")
+            key_hash = self._generate_consistent_hash(f"{service.upper()}_KEY")
+            
+            # Pattern for server command keys (e.g., "tacacs-server key secret")
+            pattern1 = re.compile(rf"({service}-server key )(\S+)", re.IGNORECASE)
+            # Pattern for server block keys (e.g., "tacacs server X\n key 7 secret")
+            # Must be in a server block context, not generic "key" lines
+            pattern2 = re.compile(rf"({service} server .+\n\s+key )(\d+)( )(\S+)", re.IGNORECASE | re.MULTILINE)
+            
+            # Replace global server keys
+            matches1 = pattern1.findall(content)
+            if matches1:
+                content = pattern1.sub(rf"\1SANITIZED_{service.upper()}_{key_hash}", content)
+            
+            # Replace server block keys
+            matches2 = pattern2.findall(content)
+            if matches2:
+                content = pattern2.sub(rf"\1\2 SANITIZED_{service.upper()}_{key_hash}", content)
+            
+            total_replaced = len(matches1) + len(matches2)
+            if total_replaced > 0:
+                changes.append(f"{service.upper()} keys: {total_replaced} replaced")
 
         # SNMP community strings
-        pattern = re.compile(r"snmp-server community (\S+)(?:\s|$)")
-
+        pattern = re.compile(r"(snmp-server community )(\S+)(\s+\S+)?")
+        snmp_hash = self._generate_consistent_hash("SNMP")
+        
         def replace_snmp(match):
-            community = match.group(1)
+            community = match.group(2)
+            rest = match.group(3) or ""
             if community.lower() not in ["ro", "rw", "read-only", "read-write"]:
-                return f"snmp-server community REDACTED_COMMUNITY"
+                return f"{match.group(1)}SANITIZED_SNMP_{snmp_hash}{rest}"
             return match.group(0)
 
         matches = pattern.findall(content)
@@ -437,37 +430,43 @@ class NetworkSanitizer:
             content = pattern.sub(replace_snmp, content)
             changes.append(f"SNMP communities: {len(matches)} checked")
 
-        # Pre-shared keys - Only sanitize if not already sanitized
-        # Find all MKA pre-shared keys
+        # Pre-shared keys - Handle various formats
+        psk_hash = self._generate_consistent_hash("PSK")
+        
+        # MKA pre-shared keys
         mka_pattern = re.compile(r"(mka pre-shared-key key-chain )(\S+)")
         mka_matches = mka_pattern.findall(content)
-
-        # Count how many we actually sanitized
-        keys_sanitized = 0
-        for prefix, key_name in mka_matches:
-            # Skip if already sanitized
-            if "_SANITIZED" not in key_name:
-                old_line = f"{prefix}{key_name}"
-                new_line = f"{prefix}{key_name}_SANITIZED"
-                content = content.replace(old_line, new_line)
-                keys_sanitized += 1
-
-        if keys_sanitized > 0:
-            changes.append(f"MKA pre-shared keys: {keys_sanitized} replaced")
+        if mka_matches:
+            content = mka_pattern.sub(r"\1MAC_KEY_SANITIZED", content)
+            changes.append(f"MKA pre-shared keys: {len(mka_matches)} replaced")
+        
+        # Crypto ISAKMP keys
+        isakmp_pattern = re.compile(r"(crypto isakmp key )(\S+)( .*)")
+        isakmp_matches = isakmp_pattern.findall(content)
+        if isakmp_matches:
+            content = isakmp_pattern.sub(rf"\1SANITIZED_PSK_{psk_hash}\3", content)
+            changes.append(f"ISAKMP keys: {len(isakmp_matches)} replaced")
+        
+        # Standalone pre-shared-key lines
+        psk_pattern = re.compile(r"^(\s*pre-shared-key )(\S+)", re.MULTILINE)
+        psk_matches = psk_pattern.findall(content)
+        if psk_matches:
+            content = psk_pattern.sub(rf"\1SANITIZED_PSK_{psk_hash}", content)
+            changes.append(f"Pre-shared keys: {len(psk_matches)} replaced")
 
         # BGP/OSPF/EIGRP passwords
         routing_patterns = [
             (
-                r"neighbor (\S+) password \d+ (\S+)",
-                r"neighbor \1 password 7 REDACTED_BGP_PASS",
+                r"(neighbor \S+ password )(\d+)( )(\S+)",
+                r"\g<1>7 REDACTED_BGP_PASS",
             ),
             (
-                r"message-digest-key \d+ md5 \d+ (\S+)",
-                r"message-digest-key 1 md5 7 REDACTED_OSPF_KEY",
+                r"(.*message-digest-key \d+ md5 )(\d+)( )(\S+)",
+                r"\g<1>7 REDACTED_OSPF_KEY",
             ),
             (
-                r"authentication mode md5.*key-string \d+ (\S+)",
-                r"authentication mode md5 key-string 7 REDACTED_AUTH_KEY",
+                r"(authentication mode md5.*key-string )(\d+)( )(\S+)",
+                r"\g<1>7 REDACTED_AUTH_KEY",
             ),
         ]
 
