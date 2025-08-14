@@ -1,4 +1,4 @@
-"""Setup configuration for network-config-sanitizer."""
+"""Setup configuration for hanirizer."""
 
 from setuptools import setup, find_packages
 from pathlib import Path
@@ -14,7 +14,7 @@ with open('src/__init__.py') as f:
             __version__ = line.split('=')[1].strip().strip('"').strip("'")
 
 setup(
-    name="network-config-sanitizer",
+    name="hanirizer",
     version=__version__,
     author="Network Automation Community",
     author_email="support@example.com",

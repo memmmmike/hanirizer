@@ -1,4 +1,4 @@
-# Network Configuration Sanitizer
+# Hanirizer - Network Configuration Sanitizer
 
 A robust Python tool for sanitizing sensitive information in network device configuration files while preserving functionality and readability.
 
@@ -43,11 +43,11 @@ Note: ZIP and TAR archives work out of the box with Python's standard library.
 
 ```bash
 # Install from PyPI (when published)
-pip install network-config-sanitizer
+pip install hanirizer
 
 # Or install from source
 git clone https://github.com/memmmmike/hanirizer.git
-cd network-config-sanitizer
+cd hanirizer
 pip install -e .
 ```
 

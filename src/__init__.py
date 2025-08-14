@@ -1,4 +1,4 @@
-"""Network Configuration Sanitizer - Secure your network configs before sharing."""
+"""Hanirizer - Secure your network configs before sharing."""
 
 __version__ = "1.2.0"
 __author__ = "Network Automation Community"
