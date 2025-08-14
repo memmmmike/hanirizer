@@ -79,17 +79,24 @@ class TestArchiveHandler:
 
     def test_create_zip_archive(self, archive_handler, temp_dir, sample_files):
         """Test creating a ZIP archive."""
-        output_path = temp_dir / "test_archive.zip"
+        # Create output in parent directory to avoid including it in the archive
+        output_dir = Path(tempfile.mkdtemp())
+        output_path = output_dir / "test_archive.zip"
 
-        result = archive_handler.create_archive(temp_dir, output_path, "zip")
+        try:
+            result = archive_handler.create_archive(temp_dir, output_path, "zip")
 
-        assert result.exists()
-        assert zipfile.is_zipfile(result)
+            assert result.exists()
+            assert zipfile.is_zipfile(result)
 
-        # Verify contents
-        with zipfile.ZipFile(result, "r") as zf:
-            names = zf.namelist()
-            assert len(names) == 3
+            # Verify contents
+            with zipfile.ZipFile(result, "r") as zf:
+                names = zf.namelist()
+                # Should only contain the 3 test files
+                assert len(names) == 3
+                assert all("test_file_" in name for name in names)
+        finally:
+            shutil.rmtree(output_dir, ignore_errors=True)
 
     def test_extract_zip_archive(self, archive_handler, temp_dir):
         """Test extracting a ZIP archive."""
