@@ -292,9 +292,14 @@ class NetworkSanitizer:
 
         # Generate new hash
         import hashlib
+        import sys
 
         base_string = f"{secret_type}_{value}_{len(self._hash_cache)}"
-        hash_obj = hashlib.md5(base_string.encode(), usedforsecurity=False)
+        # Python 3.8 doesn't support usedforsecurity parameter
+        if sys.version_info >= (3, 9):
+            hash_obj = hashlib.md5(base_string.encode(), usedforsecurity=False)
+        else:
+            hash_obj = hashlib.md5(base_string.encode())
         # Format like original: 12 character hex string in uppercase
         hash_value = hash_obj.hexdigest()[:12].upper()
 
