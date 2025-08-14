@@ -294,7 +294,7 @@ class PatternManager:
                 .upper()
             )
         else:
-            return hashlib.md5(base.encode()).hexdigest()[:12].upper()
+            return hashlib.md5(base.encode()).hexdigest()[:12].upper()  # nosec B324
 
     def export_patterns(self) -> Dict[str, Dict]:
         """Export patterns as dictionary."""

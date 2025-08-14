@@ -205,7 +205,7 @@ class BackupManager:
         if sys.version_info >= (3, 9):
             hasher = hashlib.md5(usedforsecurity=False)
         else:
-            hasher = hashlib.md5()
+            hasher = hashlib.md5()  # nosec B324 - Not used for security, Python 3.8 compat
 
         with open(filepath, "rb") as f:
             for chunk in iter(lambda: f.read(4096), b""):

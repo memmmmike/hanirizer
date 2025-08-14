@@ -299,7 +299,7 @@ class NetworkSanitizer:
         if sys.version_info >= (3, 9):
             hash_obj = hashlib.md5(base_string.encode(), usedforsecurity=False)
         else:
-            hash_obj = hashlib.md5(base_string.encode())
+            hash_obj = hashlib.md5(base_string.encode())  # nosec B324 - Not for security
         # Format like original: 12 character hex string in uppercase
         hash_value = hash_obj.hexdigest()[:12].upper()
 
