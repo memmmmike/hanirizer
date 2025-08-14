@@ -34,3 +34,10 @@ addopts = "-v --tb=short"
 [tool.isort]
 profile = "black"
 line_length = 88
+
+[tool.bandit]
+# Skip specific tests - these are false positives
+# B404: Import subprocess - needed for 7z/unrar integration
+# B603: subprocess without shell - we use it safely with hardcoded commands  
+# B607: partial path - 7z and unrar are standard system tools
+skips = ["B404", "B603", "B607"]
