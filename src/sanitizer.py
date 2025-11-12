@@ -353,9 +353,7 @@ class NetworkSanitizer:
         )
         matches = pattern.findall(content)
         if matches:
-            # Generate consistent hash like original
-            enable_hash = self._generate_consistent_hash("ENABLE")
-            content = pattern.sub(rf"\1\2 $SANITIZED_ENABLE_{enable_hash}", content)
+            content = pattern.sub(rf"\1\2 <removed-enable-secret>", content)
             changes.append(f"Enable secrets: {len(matches)} replaced")
 
         # Username secrets - Fixed to handle each line separately
@@ -369,10 +367,9 @@ class NetworkSanitizer:
                 )
                 if username_match:
                     username = username_match.group(2)
-                    # Generate consistent hash
+                    # Replace personal username and secret
                     if username in self.config.service_accounts:
-                        secret_hash = self._generate_consistent_hash("SECRET")
-                        new_line = f"{username_match.group(1)}{username}{username_match.group(3) or ''}{username_match.group(4)}{username_match.group(5)}{username_match.group(6)} $SANITIZED_SECRET_{secret_hash}"
+                        new_line = f"{username_match.group(1)}{username}{username_match.group(3) or ''}{username_match.group(4)}{username_match.group(5)}{username_match.group(6)} <removed-user-secret>"
                     else:
                         # Replace personal username and secret
                         if username in self.config.personal_accounts:
@@ -381,8 +378,7 @@ class NetworkSanitizer:
                                     f"netadmin{len(self._personal_user_mapping) + 1}"
                                 )
                             username = self._personal_user_mapping[username]
-                        secret_hash = self._generate_consistent_hash("SECRET")
-                        new_line = f"{username_match.group(1)}{username}{username_match.group(3) or ''}{username_match.group(4)}{username_match.group(5)}{username_match.group(6)} $SANITIZED_SECRET_{secret_hash}"
+                        new_line = f"{username_match.group(1)}{username}{username_match.group(3) or ''}{username_match.group(4)}{username_match.group(5)}{username_match.group(6)} <removed-user-secret>"
                     username_lines.append((line, new_line))
                     line = new_line
 
@@ -395,44 +391,38 @@ class NetworkSanitizer:
 
         # TACACS/RADIUS keys - Handle both server blocks and global commands
         for service in ["tacacs", "radius"]:
-            key_hash = self._generate_consistent_hash(f"{service.upper()}_KEY")
-
+            service_upper = service.upper()
             # Pattern for server command keys (e.g., "tacacs-server key secret")
             pattern1 = re.compile(rf"({service}-server key )(\S+)", re.IGNORECASE)
-            # Pattern for server block keys (e.g., "tacacs server X\n key 7 secret")
-            # Must be in a server block context, not generic "key" lines
+            # Pattern for server block keys (e.g., "tacacs server X\n address...\n key 7 secret")
+            # This pattern allows any number of lines between "server" and "key"
             pattern2 = re.compile(
-                rf"({service} server .+\n\s+key )(\d+)( )(\S+)",
+                rf"({service} server [^\n]+(?:\n[ \t]+(?!{service} server)[^\n]+)*?\n[ \t]+key )(\d+)( )(\S+)",
                 re.IGNORECASE | re.MULTILINE,
             )
 
             # Replace global server keys
             matches1 = pattern1.findall(content)
             if matches1:
-                content = pattern1.sub(
-                    rf"\1SANITIZED_{service.upper()}_{key_hash}", content
-                )
+                content = pattern1.sub(rf"\1<removed-{service}-key>", content)
 
             # Replace server block keys
             matches2 = pattern2.findall(content)
             if matches2:
-                content = pattern2.sub(
-                    rf"\1\2 SANITIZED_{service.upper()}_{key_hash}", content
-                )
+                content = pattern2.sub(rf"\1\2 <removed-{service}-key>", content)
 
             total_replaced = len(matches1) + len(matches2)
             if total_replaced > 0:
-                changes.append(f"{service.upper()} keys: {total_replaced} replaced")
+                changes.append(f"{service_upper} keys: {total_replaced} replaced")
 
         # SNMP community strings
         pattern = re.compile(r"(snmp-server community )(\S+)(\s+\S+)?")
-        snmp_hash = self._generate_consistent_hash("SNMP")
 
         def replace_snmp(match):
             community = match.group(2)
             rest = match.group(3) or ""
             if community.lower() not in ["ro", "rw", "read-only", "read-write"]:
-                return f"{match.group(1)}SANITIZED_SNMP_{snmp_hash}{rest}"
+                return f"{match.group(1)}<removed-snmp-community>{rest}"
             return match.group(0)
 
         matches = pattern.findall(content)
@@ -441,42 +431,48 @@ class NetworkSanitizer:
             changes.append(f"SNMP communities: {len(matches)} checked")
 
         # Pre-shared keys - Handle various formats
-        psk_hash = self._generate_consistent_hash("PSK")
 
         # MKA pre-shared keys
         mka_pattern = re.compile(r"(mka pre-shared-key key-chain )(\S+)")
         mka_matches = mka_pattern.findall(content)
         if mka_matches:
-            content = mka_pattern.sub(r"\1MAC_KEY_SANITIZED", content)
+            content = mka_pattern.sub(r"\1<removed-mka-key>", content)
             changes.append(f"MKA pre-shared keys: {len(mka_matches)} replaced")
 
         # Crypto ISAKMP keys
         isakmp_pattern = re.compile(r"(crypto isakmp key )(\S+)( .*)")
         isakmp_matches = isakmp_pattern.findall(content)
         if isakmp_matches:
-            content = isakmp_pattern.sub(rf"\1SANITIZED_PSK_{psk_hash}\3", content)
+            content = isakmp_pattern.sub(r"\1<removed-isakmp-key>\3", content)
             changes.append(f"ISAKMP keys: {len(isakmp_matches)} replaced")
 
         # Standalone pre-shared-key lines
         psk_pattern = re.compile(r"^(\s*pre-shared-key )(\S+)", re.MULTILINE)
         psk_matches = psk_pattern.findall(content)
         if psk_matches:
-            content = psk_pattern.sub(rf"\1SANITIZED_PSK_{psk_hash}", content)
+            content = psk_pattern.sub(r"\1<removed-psk>", content)
             changes.append(f"Pre-shared keys: {len(psk_matches)} replaced")
+
+        # NTP authentication keys
+        ntp_pattern = re.compile(r"(ntp authentication-key \d+ md5 )(\d+)?(\s*)(\S+)")
+        ntp_matches = ntp_pattern.findall(content)
+        if ntp_matches:
+            content = ntp_pattern.sub(r"\1<removed-ntp-key>", content)
+            changes.append(f"NTP keys: {len(ntp_matches)} replaced")
 
         # BGP/OSPF/EIGRP passwords
         routing_patterns = [
             (
                 r"(neighbor \S+ password )(\d+)( )(\S+)",
-                r"\g<1>7 REDACTED_BGP_PASS",
+                r"\g<1><removed-bgp-password>",
             ),
             (
                 r"(.*message-digest-key \d+ md5 )(\d+)( )(\S+)",
-                r"\g<1>7 REDACTED_OSPF_KEY",
+                r"\g<1><removed-ospf-key>",
             ),
             (
                 r"(authentication mode md5.*key-string )(\d+)( )(\S+)",
-                r"\g<1>7 REDACTED_AUTH_KEY",
+                r"\g<1><removed-auth-key>",
             ),
         ]
 

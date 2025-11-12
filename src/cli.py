@@ -470,8 +470,8 @@ def sanitize_archive(
         click.echo(f"Processed files: {results.get('processed_files', 0)}")
         click.echo(f"Sanitized files: {results['sanitized_files']}")
 
-        if "output_dir" in results:
-            click.echo(f"Output folder: {Path(results['output_dir']).name}")
+        if "output_path" in results:
+            click.echo(f"Output folder: {results['output_path']}")
     else:
         if in_memory:
             click.echo(f"Processed files: {results.get('processed_files', 0)}")
@@ -480,8 +480,8 @@ def sanitize_archive(
 
         click.echo(f"Sanitized files: {results['sanitized_files']}")
 
-        if results.get("output_zip"):
-            click.echo(f"Sanitized ZIP: {Path(results['output_zip']).name}")
+        if results.get("output_path"):
+            click.echo(f"Sanitized archive: {results['output_path']}")
 
     if results.get("errors"):
         click.echo("\nErrors encountered:")
