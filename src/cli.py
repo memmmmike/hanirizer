@@ -13,11 +13,8 @@ from .config import Config, VendorConfig
 from .backup import BackupManager
 from .zip_handler import ZipHandler
 from .archive_handler import ArchiveHandler
+from .logging_config import setup_logging
 
-# Configure logging
-logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
-)
 logger = logging.getLogger(__name__)
 
 
@@ -412,9 +409,12 @@ def sanitize_archive(
     cfg.dry_run = dry_run
     cfg.verbose = verbose
 
-    # Configure logging
-    if verbose:
-        logging.getLogger().setLevel(logging.DEBUG)
+    # Setup file logging
+    log_dir = Path.cwd() / "logs"
+    setup_logging(log_dir=log_dir, verbose=verbose, log_to_file=True)
+
+    logger.info(f"Starting sanitization of {archive_file}")
+    logger.info(f"Hanirizer version: {__version__}")
 
     archive_path = Path(archive_file)
 
@@ -424,7 +424,7 @@ def sanitize_archive(
             click.echo("Error: File is not a supported archive format", err=True)
             sys.exit(1)
 
-        archive_info = archive_handler.get_archive_info(archive_path)
+        archive_info = archive_handler.get_archive_info(archive_path, password=password)
         click.echo(f"Archive file: {archive_path.name}")
         click.echo(f"Archive type: {archive_info['type']}")
         if archive_info.get("encrypted"):
@@ -432,9 +432,12 @@ def sanitize_archive(
         click.echo(f"Total files: {archive_info['file_count']}")
         click.echo(f"Size: {archive_info['size_mb']} MB")
 
-        if archive_info["file_count"] == 0:
-            click.echo("No files found in archive")
-            return
+        # If encrypted and no password provided, warn but continue
+        # (extraction will prompt for password)
+        if archive_info.get("encrypted") and not password and archive_info["file_count"] == 0:
+            click.echo("\n⚠️  Archive is encrypted. File count may be inaccurate without password.")
+            click.echo("   Continuing anyway - you will be prompted for password during extraction.")
+            # Don't return early - let extraction prompt for password
 
         if verbose:
             click.echo("\nFiles found in archive:")
@@ -464,29 +467,43 @@ def sanitize_archive(
     )
 
     # Display results
-    click.echo("\nProcessing complete:")
+    click.echo("\n" + "=" * 60)
+    click.echo("SANITIZATION COMPLETE")
+    click.echo("=" * 60)
 
-    if output_format == "folder":
-        click.echo(f"Processed files: {results.get('processed_files', 0)}")
-        click.echo(f"Sanitized files: {results['sanitized_files']}")
+    click.echo(f"Input:  {archive_path.name}")
+    if "output_path" in results:
+        click.echo(f"Output: {Path(results['output_path']).name}")
 
-        if "output_path" in results:
-            click.echo(f"Output folder: {results['output_path']}")
-    else:
-        if in_memory:
-            click.echo(f"Processed files: {results.get('processed_files', 0)}")
-        else:
-            click.echo(f"Extracted files: {results.get('extracted_files', 0)}")
+    click.echo(f"\nFiles extracted: {results.get('extracted_files', 0)}")
+    click.echo(f"Files sanitized: {results['sanitized_files']}")
 
-        click.echo(f"Sanitized files: {results['sanitized_files']}")
+    # Show error summary
+    error_count = len(results.get("errors", []))
+    if error_count > 0:
+        click.echo(f"Files with errors: {error_count}", err=True)
 
-        if results.get("output_path"):
-            click.echo(f"Sanitized archive: {results['output_path']}")
+    # Show reports generated
+    if "output_path" in results:
+        click.echo(f"\nOutput location: {results['output_path']}")
+        click.echo("Security reports: SECURITY_REPORT_*.{json,txt,md}")
 
     if results.get("errors"):
-        click.echo("\nErrors encountered:")
+        click.echo("\n" + "=" * 60)
+        click.echo("ERRORS ENCOUNTERED")
+        click.echo("=" * 60)
         for error in results["errors"]:
             click.echo(f"  - {error}", err=True)
+            logger.error(f"File error: {error}")
+
+    click.echo("=" * 60)
+
+    # Log completion
+    logger.info(f"Sanitization complete: {results['sanitized_files']} files sanitized, {error_count} errors")
+
+    # Exit with error code if there were errors
+    if error_count > 0:
+        sys.exit(1)
 
 
 @cli.command()
@@ -508,6 +525,30 @@ def list_vendors():
                 click.echo(f"    - {pattern_name}")
             if len(config.patterns) > 5:
                 click.echo(f"    ... and {len(config.patterns) - 5} more")
+
+
+@cli.command()
+def check_update():
+    """Check for available updates."""
+    from .version_check import check_for_updates
+
+    click.echo(f"Current version: {__version__}")
+    click.echo("Checking for updates...")
+
+    result = check_for_updates(silent=True)
+
+    if result is None:
+        click.echo("❌ Could not check for updates (no internet connection?)")
+        return
+
+    click.echo(f"Latest version: {result['latest_version']} (from {result['source']})")
+
+    if result['is_outdated']:
+        click.echo(f"\n⚠️  {result['message']}")
+        click.echo(f"\nTo update, run:")
+        click.echo(f"  pip install --upgrade hanirizer")
+    else:
+        click.echo(f"\n✓ {result['message']}")
 
 
 def output_text(results, dry_run, show_stats, duration):

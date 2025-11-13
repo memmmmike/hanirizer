@@ -8,6 +8,7 @@ from pathlib import Path
 from datetime import datetime, timedelta
 from typing import Optional, List, Dict, Any
 import logging
+import threading
 
 logger = logging.getLogger(__name__)
 
@@ -21,6 +22,7 @@ class BackupManager:
         self.backup_dir = Path(config.directory)
         self.retention_days = config.retention_days
         self.compression = config.compression
+        self._lock = threading.Lock()  # Thread-safe lock for metadata operations
 
         # Create backup directory if it doesn't exist
         if self.enabled:
@@ -70,15 +72,16 @@ class BackupManager:
             else:
                 shutil.copy2(filepath, backup_path)
 
-            # Update metadata
-            self.metadata["backups"][str(backup_path)] = {
-                "original_path": str(filepath),
-                "timestamp": timestamp,
-                "file_hash": file_hash,
-                "compressed": self.compression,
-                "size": backup_path.stat().st_size,
-            }
-            self._save_metadata()
+            # Update metadata (thread-safe)
+            with self._lock:
+                self.metadata["backups"][str(backup_path)] = {
+                    "original_path": str(filepath),
+                    "timestamp": timestamp,
+                    "file_hash": file_hash,
+                    "compressed": self.compression,
+                    "size": backup_path.stat().st_size,
+                }
+                self._save_metadata()
 
             logger.debug(f"Created backup: {backup_path}")
             return backup_path
@@ -164,20 +167,21 @@ class BackupManager:
         cutoff_date = datetime.now() - timedelta(days=self.retention_days)
         removed_count = 0
 
-        for backup_path, info in list(self.metadata["backups"].items()):
-            backup_date = datetime.strptime(info["timestamp"], "%Y%m%d_%H%M%S")
+        with self._lock:
+            for backup_path, info in list(self.metadata["backups"].items()):
+                backup_date = datetime.strptime(info["timestamp"], "%Y%m%d_%H%M%S")
 
-            if backup_date < cutoff_date:
-                try:
-                    Path(backup_path).unlink()
-                    del self.metadata["backups"][backup_path]
-                    removed_count += 1
-                except Exception as e:
-                    logger.error(f"Failed to remove old backup {backup_path}: {e}")
+                if backup_date < cutoff_date:
+                    try:
+                        Path(backup_path).unlink()
+                        del self.metadata["backups"][backup_path]
+                        removed_count += 1
+                    except Exception as e:
+                        logger.error(f"Failed to remove old backup {backup_path}: {e}")
 
-        if removed_count > 0:
-            self._save_metadata()
-            logger.info(f"Removed {removed_count} old backups")
+            if removed_count > 0:
+                self._save_metadata()
+                logger.info(f"Removed {removed_count} old backups")
 
     def _find_backup(
         self, original_path: Path, backup_date: Optional[str] = None

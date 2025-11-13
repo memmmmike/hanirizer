@@ -29,17 +29,17 @@ class TestNetworkSanitizer:
         """Test sanitization of enable secrets."""
         content = "enable secret 5 $1$xyz$abcdef123456"
         result = sanitizer.sanitize_content(content)
-        assert "$SANITIZED_ENABLE_" in result
+        assert "<removed-enable-secret>" in result
         assert "$1$xyz$abcdef123456" not in result
 
     def test_sanitize_username_password(self, sanitizer):
         """Test sanitization of username passwords."""
         content = """
         username admin secret 5 $1$abc$def123
-        username john.doe password 7 1234567890ABCDEF
+        username netadmin1 password 7 1234567890ABCDEF
         """
         result = sanitizer.sanitize_content(content)
-        assert "$SANITIZED_SECRET_" in result
+        assert "<removed-user-secret>" in result
         assert "$1$abc$def123" not in result
         assert "1234567890ABCDEF" not in result
 
@@ -48,7 +48,7 @@ class TestNetworkSanitizer:
         content = "username admin secret 5 $1$abc$def123"
         result = sanitizer.sanitize_content(content)
         assert "username admin" in result
-        assert "$SANITIZED_SECRET_" in result
+        assert "<removed-user-secret>" in result
 
     def test_replace_personal_accounts(self, sanitizer):
         """Test that personal account usernames are replaced."""
@@ -68,7 +68,7 @@ class TestNetworkSanitizer:
         tacacs-server key MySecretKey
         """
         result = sanitizer.sanitize_content(content)
-        assert "SANITIZED_TACACS_" in result
+        assert "<removed-tacacs-key>" in result
         assert "1234567890ABCDEF" not in result
         assert "MySecretKey" not in result
 
@@ -79,7 +79,7 @@ class TestNetworkSanitizer:
         snmp-server community MySecret RW
         """
         result = sanitizer.sanitize_content(content)
-        assert "SANITIZED_SNMP_" in result
+        assert "<removed-snmp-community>" in result
         assert "MySecret" not in result
 
     def test_sanitize_routing_passwords(self, sanitizer):
@@ -96,7 +96,7 @@ class TestNetworkSanitizer:
          neighbor 10.0.0.1 password 7 ABCDEF123456
         """
         result = sanitizer.sanitize_content(content)
-        assert "REDACTED_OSPF" in result or "REDACTED_BGP" in result
+        assert "<removed-ospf-key>" in result or "<removed-bgp-password>" in result
         assert "1234567890" not in result
         assert "ABCDEF123456" not in result
 
@@ -107,7 +107,7 @@ class TestNetworkSanitizer:
         pre-shared-key SuperSecretKey
         """
         result = sanitizer.sanitize_content(content)
-        assert "MAC_KEY_SANITIZED" in result or "SANITIZED_" in result
+        assert "<removed-isakmp-key>" in result or "<removed-psk>" in result
         assert "MyVPNKey" not in result
         assert "SuperSecretKey" not in result
 
@@ -127,7 +127,7 @@ class TestNetworkSanitizer:
 
         # Check file content
         sanitized_content = test_file.read_text()
-        assert "$SANITIZED_ENABLE_" in sanitized_content
+        assert "<removed-enable-secret>" in sanitized_content
         assert "$1$xyz$abcdef123456" not in sanitized_content
 
     def test_dry_run_mode(self, config, tmp_path):

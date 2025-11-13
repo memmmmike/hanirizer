@@ -50,7 +50,13 @@ setup(
         "click>=8.0.0",
         "pyyaml>=6.0",
         "pyminizip>=0.2.6",  # For password-protected ZIP creation
+        "requests>=2.28.0",  # For version checking
+        "packaging>=21.0",  # For version comparison
     ],
+    # Note: 7z and unrar are system dependencies (see README.md)
+    # Linux: sudo apt-get install p7zip-full unrar
+    # macOS: brew install p7zip unrar
+    # Windows: choco install 7zip unrar
     extras_require={
         "dev": [
             "pytest>=7.0.0",

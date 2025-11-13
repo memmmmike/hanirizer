@@ -245,13 +245,18 @@ class ArchiveHandler:
         # Build 7z command
         cmd = ["7z", "x", "-y", f"-o{extract_dir}", str(archive_path)]
 
-        # Add password if provided
+        # Check if password is needed and prompt if not provided
+        is_encrypted = self._is_password_protected_7z(archive_path)
+
         if password:
             cmd.append(f"-p{password}")
-        elif self._is_password_protected_7z(archive_path):
+        elif is_encrypted:
+            # Prompt for password before running subprocess
             password = self._prompt_for_password(archive_path.name)
             if password:
                 cmd.append(f"-p{password}")
+            else:
+                raise ValueError("Password required for encrypted 7z archive")
 
         try:
             subprocess.run(cmd, capture_output=True, text=True, check=True)
@@ -373,8 +378,18 @@ class ArchiveHandler:
                 capture_output=True,
                 text=True,
                 check=False,
+                timeout=2,  # Add timeout to prevent hanging
             )
-            return "Enter password" in result.stderr
+            # Check for encryption indicators in output
+            return (
+                "Enter password" in result.stderr
+                or "Enter password" in result.stdout
+                or "encrypted" in result.stdout.lower()
+                or result.returncode == 2  # 7z returns 2 for encrypted archives
+            )
+        except subprocess.TimeoutExpired:
+            # If command times out, it's likely waiting for password = encrypted
+            return True
         except Exception:
             return False
 
@@ -389,8 +404,12 @@ class ArchiveHandler:
                 capture_output=True,
                 text=True,
                 check=False,
+                timeout=2,  # Add timeout to prevent hanging
             )
             return "encrypted" in result.stdout.lower()
+        except subprocess.TimeoutExpired:
+            # If command times out, it's likely waiting for password = encrypted
+            return True
         except Exception:
             return False
 
@@ -540,8 +559,16 @@ class ArchiveHandler:
         """Context manager exit with cleanup."""
         self.cleanup()
 
-    def get_archive_info(self, archive_path: Path) -> Dict[str, Any]:
-        """Get information about archive contents."""
+    def get_archive_info(self, archive_path: Path, password: Optional[str] = None) -> Dict[str, Any]:
+        """Get information about archive contents.
+
+        Args:
+            archive_path: Path to archive file
+            password: Optional password for encrypted archives
+
+        Returns:
+            Dictionary with archive information
+        """
         archive_type = self.identify_archive_type(archive_path)
 
         if not archive_type:
@@ -554,24 +581,40 @@ class ArchiveHandler:
             "files": [],
         }
 
+        # Use provided password or instance password
+        pwd = password or self.password
+
         try:
             if archive_type == "zip":
                 with zipfile.ZipFile(archive_path, "r") as zip_ref:
-                    for file_info in zip_ref.infolist():
-                        if not file_info.is_dir():
-                            info["files"].append(file_info.filename)
-                    # Check if encrypted
+                    # Check if encrypted first
                     if (
                         zip_ref.namelist()
                         and zip_ref.getinfo(zip_ref.namelist()[0]).flag_bits & 0x1
                     ):
                         info["encrypted"] = True
 
+                    # Try to list files
+                    try:
+                        if info["encrypted"] and pwd:
+                            zip_ref.setpassword(pwd.encode("utf-8"))
+                        for file_info in zip_ref.infolist():
+                            if not file_info.is_dir():
+                                info["files"].append(file_info.filename)
+                    except RuntimeError:
+                        # Bad password or no password - can't list files
+                        # But we know it's encrypted
+                        pass
+
             elif archive_type == "7z" and self._7z_available:
                 info["encrypted"] = self._is_password_protected_7z(archive_path)
-                # Get file list
+                # Get file list - use password if encrypted
+                cmd = ["7z", "l", "-slt", str(archive_path)]
+                if info["encrypted"] and pwd:
+                    cmd.append(f"-p{pwd}")
+
                 result = subprocess.run(
-                    ["7z", "l", "-slt", str(archive_path)],
+                    cmd,
                     capture_output=True,
                     text=True,
                     check=False,
@@ -584,9 +627,13 @@ class ArchiveHandler:
 
             elif archive_type == "rar" and self._rar_available:
                 info["encrypted"] = self._is_password_protected_rar(archive_path)
-                # Get file list
+                # Get file list - use password if encrypted
+                cmd = ["unrar", "lb", str(archive_path)]
+                if info["encrypted"] and pwd:
+                    cmd.insert(2, f"-p{pwd}")
+
                 result = subprocess.run(
-                    ["unrar", "lb", str(archive_path)],
+                    cmd,
                     capture_output=True,
                     text=True,
                     check=False,

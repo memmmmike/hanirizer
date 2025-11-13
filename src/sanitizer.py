@@ -3,11 +3,13 @@
 import re
 import logging
 import shutil
+import json
 from pathlib import Path
 from typing import Dict, List, Tuple, Optional, Any, Union
 from dataclasses import dataclass, field
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import time
+from datetime import datetime
 
 from .config import Config
 from .backup import BackupManager
@@ -238,12 +240,21 @@ class NetworkSanitizer:
                     base_name = archive_path.stem
                     if base_name.endswith("_sanitized"):
                         base_name = base_name[:-11]
-                    output_path = output_base / f"{base_name}_sanitized"
 
-                    if output_path.exists():
-                        shutil.rmtree(output_path)
+                    # Add timestamp to avoid overwriting existing folders
+                    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                    output_path = output_base / f"{base_name}_sanitized_{timestamp}"
+
                     shutil.copytree(extract_dir, output_path)
                     results["output_path"] = str(output_path)
+
+                    # Generate and save security report in output folder
+                    security_report = self.generate_security_report(
+                        sanitization_results, archive_path.name, output_path
+                    )
+                    self.save_security_report(
+                        security_report, output_path, formats=["json", "txt", "md"]
+                    )
 
                 else:
                     # Create archive in specified format
@@ -512,14 +523,32 @@ class NetworkSanitizer:
         return content, changes
 
     def _find_files(self, directory: Path) -> List[Path]:
-        """Find all files matching configured patterns."""
+        """Find all files matching configured patterns (case-insensitive)."""
         files = []
 
         for pattern in self.config.file_patterns:
             if self.config.recursive:
-                files.extend(directory.rglob(pattern))
+                # Get all files matching pattern (case-sensitive first)
+                matched = list(directory.rglob(pattern))
+                files.extend(matched)
+
+                # Also match case-insensitive variants for common extensions
+                if pattern.startswith("*."):
+                    ext = pattern[2:]  # Remove "*."
+                    # Try uppercase, lowercase, and title case variants
+                    for variant in [ext.upper(), ext.lower(), ext.title()]:
+                        if variant != ext:
+                            files.extend(directory.rglob(f"*.{variant}"))
             else:
-                files.extend(directory.glob(pattern))
+                matched = list(directory.glob(pattern))
+                files.extend(matched)
+
+                # Also match case-insensitive variants for common extensions
+                if pattern.startswith("*."):
+                    ext = pattern[2:]  # Remove "*."
+                    for variant in [ext.upper(), ext.lower(), ext.title()]:
+                        if variant != ext:
+                            files.extend(directory.glob(f"*.{variant}"))
 
         # Remove duplicates and sort
         files = sorted(set(files))
@@ -608,3 +637,258 @@ class NetworkSanitizer:
                         )
 
         print("=" * 60)
+
+    def generate_security_report(
+        self,
+        sanitization_results: List[SanitizationResult],
+        archive_name: str,
+        output_path: Path,
+    ) -> Dict[str, Any]:
+        """Generate comprehensive security report of sanitization.
+
+        Args:
+            sanitization_results: List of sanitization results
+            archive_name: Name of the original archive
+            output_path: Path where sanitized output was saved
+
+        Returns:
+            Dictionary containing the security report data
+        """
+        timestamp = datetime.now()
+
+        # Aggregate statistics by secret type
+        secret_stats = {}
+        total_secrets = 0
+        files_with_secrets = 0
+        file_details = []
+
+        for result in sanitization_results:
+            if result.modified and result.changes:
+                files_with_secrets += 1
+                file_info = {
+                    "filename": result.filepath.name,
+                    "changes": result.change_count,
+                    "secrets_by_type": {},
+                }
+
+                for change in result.changes:
+                    # Parse change string to extract secret type and count
+                    # Format: "Secret Type: N replaced" or "Secret Type: N checked"
+                    if isinstance(change, str):
+                        # Extract the secret type (everything before the colon)
+                        if ":" in change:
+                            secret_type = change.split(":")[0].strip()
+                            # Extract the count
+                            count_match = re.search(r'(\d+)\s+(?:replaced|checked)', change)
+                            count = int(count_match.group(1)) if count_match else 1
+                        else:
+                            secret_type = "unknown"
+                            count = 1
+                    else:
+                        # Fallback for unexpected format
+                        secret_type = "unknown"
+                        count = 1
+
+                    if secret_type not in secret_stats:
+                        secret_stats[secret_type] = {
+                            "count": 0,
+                            "files": set(),
+                        }
+
+                    secret_stats[secret_type]["count"] += count
+                    secret_stats[secret_type]["files"].add(result.filepath.name)
+                    total_secrets += count
+
+                    # Track per-file stats
+                    if secret_type not in file_info["secrets_by_type"]:
+                        file_info["secrets_by_type"][secret_type] = 0
+                    file_info["secrets_by_type"][secret_type] += count
+
+                file_details.append(file_info)
+
+        # Convert sets to counts for JSON serialization
+        secret_summary = {}
+        for secret_type, data in secret_stats.items():
+            secret_summary[secret_type] = {
+                "total_count": data["count"],
+                "affected_files": len(data["files"]),
+            }
+
+        # Build report
+        report = {
+            "report_metadata": {
+                "generated_at": timestamp.isoformat(),
+                "generated_by": "Hanirizer Network Config Sanitizer",
+                "report_version": "1.0",
+            },
+            "archive_info": {
+                "original_archive": archive_name,
+                "sanitized_output": str(output_path),
+                "total_files_extracted": len(sanitization_results),
+                "total_files_sanitized": files_with_secrets,
+            },
+            "security_summary": {
+                "total_secrets_found": total_secrets,
+                "files_containing_secrets": files_with_secrets,
+                "secret_types_detected": len(secret_stats),
+            },
+            "secrets_by_type": secret_summary,
+            "file_details": sorted(
+                file_details, key=lambda x: x["changes"], reverse=True
+            ),
+        }
+
+        return report
+
+    def save_security_report(
+        self,
+        report: Dict[str, Any],
+        output_dir: Path,
+        formats: List[str] = ["json", "txt"],
+    ):
+        """Save security report in multiple formats.
+
+        Args:
+            report: Security report data
+            output_dir: Directory to save reports
+            formats: List of formats to generate (json, txt, md)
+        """
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+        # Save JSON format
+        if "json" in formats:
+            json_path = output_dir / f"SECURITY_REPORT_{timestamp}.json"
+            with open(json_path, "w") as f:
+                json.dump(report, f, indent=2)
+            logger.info(f"Security report (JSON) saved: {json_path}")
+
+        # Save TXT format
+        if "txt" in formats:
+            txt_path = output_dir / f"SECURITY_REPORT_{timestamp}.txt"
+            with open(txt_path, "w") as f:
+                self._write_text_report(f, report)
+            logger.info(f"Security report (TXT) saved: {txt_path}")
+
+        # Save Markdown format
+        if "md" in formats:
+            md_path = output_dir / f"SECURITY_REPORT_{timestamp}.md"
+            with open(md_path, "w") as f:
+                self._write_markdown_report(f, report)
+            logger.info(f"Security report (MD) saved: {md_path}")
+
+    def _write_text_report(self, f, report: Dict[str, Any]):
+        """Write security report in plain text format."""
+        f.write("=" * 80 + "\n")
+        f.write("NETWORK CONFIGURATION SANITIZATION SECURITY REPORT\n")
+        f.write("=" * 80 + "\n\n")
+
+        # Metadata
+        f.write(f"Generated: {report['report_metadata']['generated_at']}\n")
+        f.write(f"Tool: {report['report_metadata']['generated_by']}\n\n")
+
+        # Archive info
+        f.write("-" * 80 + "\n")
+        f.write("ARCHIVE INFORMATION\n")
+        f.write("-" * 80 + "\n")
+        f.write(f"Original Archive: {report['archive_info']['original_archive']}\n")
+        f.write(f"Sanitized Output: {report['archive_info']['sanitized_output']}\n")
+        f.write(f"Total Files: {report['archive_info']['total_files_extracted']}\n")
+        f.write(f"Files Sanitized: {report['archive_info']['total_files_sanitized']}\n\n")
+
+        # Security summary
+        f.write("-" * 80 + "\n")
+        f.write("SECURITY SUMMARY\n")
+        f.write("-" * 80 + "\n")
+        f.write(f"Total Secrets Found: {report['security_summary']['total_secrets_found']}\n")
+        f.write(f"Files With Secrets: {report['security_summary']['files_containing_secrets']}\n")
+        f.write(f"Secret Types: {report['security_summary']['secret_types_detected']}\n\n")
+
+        # Secrets by type
+        if report["secrets_by_type"]:
+            f.write("-" * 80 + "\n")
+            f.write("SECRETS BY TYPE\n")
+            f.write("-" * 80 + "\n")
+            for secret_type, data in sorted(
+                report["secrets_by_type"].items(),
+                key=lambda x: x[1]["total_count"],
+                reverse=True,
+            ):
+                f.write(f"\n{secret_type}:\n")
+                f.write(f"  Count: {data['total_count']}\n")
+                f.write(f"  Affected Files: {data['affected_files']}\n")
+
+        # All modified files
+        if report["file_details"]:
+            f.write("\n" + "-" * 80 + "\n")
+            f.write("MODIFIED FILES\n")
+            f.write("-" * 80 + "\n")
+            for idx, file_info in enumerate(report["file_details"], 1):
+                f.write(f"\n{idx}. {file_info['filename']}\n")
+                f.write(f"   Total Changes: {file_info['changes']}\n")
+                if file_info["secrets_by_type"]:
+                    f.write("   Secrets Found:\n")
+                    for stype, count in sorted(
+                        file_info["secrets_by_type"].items(),
+                        key=lambda x: x[1],
+                        reverse=True,
+                    ):
+                        f.write(f"     - {stype}: {count}\n")
+
+        f.write("\n" + "=" * 80 + "\n")
+        f.write("END OF REPORT\n")
+        f.write("=" * 80 + "\n")
+
+    def _write_markdown_report(self, f, report: Dict[str, Any]):
+        """Write security report in Markdown format."""
+        f.write("# Network Configuration Sanitization Security Report\n\n")
+
+        # Metadata
+        f.write("## Report Metadata\n\n")
+        f.write(f"- **Generated:** {report['report_metadata']['generated_at']}\n")
+        f.write(f"- **Tool:** {report['report_metadata']['generated_by']}\n")
+        f.write(f"- **Version:** {report['report_metadata']['report_version']}\n\n")
+
+        # Archive info
+        f.write("## Archive Information\n\n")
+        f.write(f"- **Original Archive:** `{report['archive_info']['original_archive']}`\n")
+        f.write(f"- **Sanitized Output:** `{report['archive_info']['sanitized_output']}`\n")
+        f.write(f"- **Total Files Extracted:** {report['archive_info']['total_files_extracted']}\n")
+        f.write(f"- **Files Sanitized:** {report['archive_info']['total_files_sanitized']}\n\n")
+
+        # Security summary
+        f.write("## Security Summary\n\n")
+        f.write(f"- **Total Secrets Found:** {report['security_summary']['total_secrets_found']}\n")
+        f.write(f"- **Files Containing Secrets:** {report['security_summary']['files_containing_secrets']}\n")
+        f.write(f"- **Secret Types Detected:** {report['security_summary']['secret_types_detected']}\n\n")
+
+        # Secrets by type
+        if report["secrets_by_type"]:
+            f.write("## Secrets by Type\n\n")
+            f.write("| Secret Type | Total Count | Affected Files |\n")
+            f.write("|-------------|-------------|----------------|\n")
+            for secret_type, data in sorted(
+                report["secrets_by_type"].items(),
+                key=lambda x: x[1]["total_count"],
+                reverse=True,
+            ):
+                f.write(f"| {secret_type} | {data['total_count']} | {data['affected_files']} |\n")
+            f.write("\n")
+
+        # All modified files
+        if report["file_details"]:
+            f.write("## Modified Files\n\n")
+            for idx, file_info in enumerate(report["file_details"], 1):
+                f.write(f"### {idx}. {file_info['filename']}\n\n")
+                f.write(f"**Total Changes:** {file_info['changes']}\n\n")
+                if file_info["secrets_by_type"]:
+                    f.write("**Secrets Found:**\n\n")
+                    for stype, count in sorted(
+                        file_info["secrets_by_type"].items(),
+                        key=lambda x: x[1],
+                        reverse=True,
+                    ):
+                        f.write(f"- `{stype}`: {count}\n")
+                    f.write("\n")
+
+        f.write("---\n\n")
+        f.write("*Report generated by Hanirizer Network Config Sanitizer*\n")
