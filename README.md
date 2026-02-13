@@ -28,7 +28,7 @@ A robust Python tool for sanitizing sensitive information in network device conf
 **Python**: 3.8 or higher
 
 **Optional dependencies for archive support**:
-- **7-Zip archives (.7z)**: 
+- **7-Zip archives (.7z)**:
   - Linux/Ubuntu: `sudo apt-get install p7zip-full`
   - macOS: `brew install p7zip`
   - Windows: `choco install 7zip` or download from [7-zip.org](https://www.7-zip.org/)
@@ -330,19 +330,14 @@ The tool is tested on multiple platforms and can be integrated into CI/CD pipeli
   run: |
     sudo apt-get update
     sudo apt-get install -y p7zip-full unrar  # For 7z and RAR support
-    
+
 - name: Sanitize configs
   run: |
     pip install network-config-sanitizer
     netsan sanitize --dry-run ./configs/
 ```
 
-The tool works on:
-- ✅ Linux (Ubuntu, Debian, CentOS, RHEL)
-- ✅ macOS 
-- ✅ Windows
-- ✅ Docker containers
-- ✅ GitHub Actions, GitLab CI, Jenkins
+Tested on Linux (Fedora).
 
 ## Security Considerations
 
@@ -399,7 +394,7 @@ netsan sanitize --pattern "*.conf" /etc/network/
 # ✓ Processed: router1.conf (12 secrets sanitized)
 # ✓ Processed: switch1.conf (8 secrets sanitized)
 # ✓ Processed: firewall1.conf (15 secrets sanitized)
-# 
+#
 # Summary: 3 files processed, 35 total secrets sanitized
 ```
 
