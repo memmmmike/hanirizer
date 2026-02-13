@@ -1,21 +1,21 @@
 """Main sanitizer implementation."""
 
-import re
-import logging
-import shutil
 import json
-from pathlib import Path
-from typing import Dict, List, Tuple, Optional, Any, Union
-from dataclasses import dataclass, field
-from concurrent.futures import ThreadPoolExecutor, as_completed
+import logging
+import re
+import shutil
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from dataclasses import dataclass, field
 from datetime import datetime
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple, Union
 
-from .config import Config
+from .archive_handler import ArchiveHandler
 from .backup import BackupManager
+from .config import Config
 from .patterns import PatternManager
 from .zip_handler import ZipHandler
-from .archive_handler import ArchiveHandler
 
 logger = logging.getLogger(__name__)
 
@@ -464,6 +464,79 @@ class NetworkSanitizer:
             content = psk_pattern.sub(r"\1<removed-psk>", content)
             changes.append(f"Pre-shared keys: {len(psk_matches)} replaced")
 
+        # Juniper set-format: pre-shared-key with $9$ encrypted values
+        # e.g. set security ike policy X pre-shared-key "$9$abc123..."
+        juniper_psk_pattern = re.compile(
+            r'(pre-shared-key\s+(?:ascii-text|hexadecimal)?\s*)("[^"]*"|\S+)',
+            re.IGNORECASE,
+        )
+        juniper_psk_matches = juniper_psk_pattern.findall(content)
+        if juniper_psk_matches:
+            content = juniper_psk_pattern.sub(r"\1<removed-psk>", content)
+            changes.append(f"Juniper PSK: {len(juniper_psk_matches)} replaced")
+
+        # Juniper encrypted-password anywhere (not just root-authentication)
+        juniper_encpw_pattern = re.compile(
+            r'(encrypted-password\s+)("[^"]*"|\S+)', re.IGNORECASE
+        )
+        juniper_encpw_matches = juniper_encpw_pattern.findall(content)
+        if juniper_encpw_matches:
+            content = juniper_encpw_pattern.sub(r"\1<removed-password>", content)
+            changes.append(
+                f"Juniper encrypted passwords: {len(juniper_encpw_matches)} replaced"
+            )
+
+        # Juniper authentication-key and shared-secret
+        juniper_authkey_pattern = re.compile(
+            r'((?:authentication-key|shared-secret)\s+)("[^"]*"|\S+)', re.IGNORECASE
+        )
+        juniper_authkey_matches = juniper_authkey_pattern.findall(content)
+        if juniper_authkey_matches:
+            content = juniper_authkey_pattern.sub(r"\1<removed-key>", content)
+            changes.append(
+                f"Juniper auth keys: {len(juniper_authkey_matches)} replaced"
+            )
+
+        # Catch-all: any remaining $9$ encrypted strings (Juniper proprietary)
+        j9_quoted = re.findall(r'"\$9\$[^"]*"', content)
+        content = re.sub(r'"\$9\$[^"]*"', "<removed-encrypted>", content)
+        j9_unquoted = re.findall(r"(?<!\w)\$9\$[A-Za-z0-9./:@_\-]+", content)
+        content = re.sub(
+            r"(?<!\w)\$9\$[A-Za-z0-9./:@_\-]+", "<removed-encrypted>", content
+        )
+        j9_total = len(j9_quoted) + len(j9_unquoted)
+        if j9_total:
+            changes.append(f"Juniper $9$ encrypted: {j9_total} replaced")
+
+        # Catch-all: $1$/$5$/$6$ password hashes (MD5/SHA-256/SHA-512)
+        hash_matches = re.findall(r"(?<!\w)\$[156]\$[^\s]+", content)
+        content = re.sub(r"(?<!\w)\$[156]\$[^\s]+", "<removed-hash>", content)
+        if hash_matches:
+            changes.append(f"Password hashes: {len(hash_matches)} replaced")
+
+        # Cisco OSPF authentication keys
+        ospf_auth_matches = re.findall(
+            r"ip\s+ospf\s+authentication-key\s+\S+", content, re.IGNORECASE
+        )
+        content = re.sub(
+            r"(ip\s+ospf\s+authentication-key\s+)(\S+)",
+            r"\1<removed-key>",
+            content,
+            flags=re.IGNORECASE,
+        )
+        ospf_md5_matches = re.findall(
+            r"ip\s+ospf\s+message-digest-key\s+\d+\s+md5\s+", content, re.IGNORECASE
+        )
+        content = re.sub(
+            r"(ip\s+ospf\s+message-digest-key\s+\d+\s+md5\s+)(\d+\s+)?(\S+)",
+            r"\1\2<removed-key>",
+            content,
+            flags=re.IGNORECASE,
+        )
+        ospf_total = len(ospf_auth_matches) + len(ospf_md5_matches)
+        if ospf_total:
+            changes.append(f"OSPF auth keys: {ospf_total} replaced")
+
         # NTP authentication keys
         ntp_pattern = re.compile(r"(ntp authentication-key \d+ md5 )(\d+)?(\s*)(\S+)")
         ntp_matches = ntp_pattern.findall(content)
@@ -679,7 +752,9 @@ class NetworkSanitizer:
                         if ":" in change:
                             secret_type = change.split(":")[0].strip()
                             # Extract the count
-                            count_match = re.search(r'(\d+)\s+(?:replaced|checked)', change)
+                            count_match = re.search(
+                                r"(\d+)\s+(?:replaced|checked)", change
+                            )
                             count = int(count_match.group(1)) if count_match else 1
                         else:
                             secret_type = "unknown"
@@ -793,15 +868,23 @@ class NetworkSanitizer:
         f.write(f"Original Archive: {report['archive_info']['original_archive']}\n")
         f.write(f"Sanitized Output: {report['archive_info']['sanitized_output']}\n")
         f.write(f"Total Files: {report['archive_info']['total_files_extracted']}\n")
-        f.write(f"Files Sanitized: {report['archive_info']['total_files_sanitized']}\n\n")
+        f.write(
+            f"Files Sanitized: {report['archive_info']['total_files_sanitized']}\n\n"
+        )
 
         # Security summary
         f.write("-" * 80 + "\n")
         f.write("SECURITY SUMMARY\n")
         f.write("-" * 80 + "\n")
-        f.write(f"Total Secrets Found: {report['security_summary']['total_secrets_found']}\n")
-        f.write(f"Files With Secrets: {report['security_summary']['files_containing_secrets']}\n")
-        f.write(f"Secret Types: {report['security_summary']['secret_types_detected']}\n\n")
+        f.write(
+            f"Total Secrets Found: {report['security_summary']['total_secrets_found']}\n"
+        )
+        f.write(
+            f"Files With Secrets: {report['security_summary']['files_containing_secrets']}\n"
+        )
+        f.write(
+            f"Secret Types: {report['security_summary']['secret_types_detected']}\n\n"
+        )
 
         # Secrets by type
         if report["secrets_by_type"]:
@@ -850,16 +933,30 @@ class NetworkSanitizer:
 
         # Archive info
         f.write("## Archive Information\n\n")
-        f.write(f"- **Original Archive:** `{report['archive_info']['original_archive']}`\n")
-        f.write(f"- **Sanitized Output:** `{report['archive_info']['sanitized_output']}`\n")
-        f.write(f"- **Total Files Extracted:** {report['archive_info']['total_files_extracted']}\n")
-        f.write(f"- **Files Sanitized:** {report['archive_info']['total_files_sanitized']}\n\n")
+        f.write(
+            f"- **Original Archive:** `{report['archive_info']['original_archive']}`\n"
+        )
+        f.write(
+            f"- **Sanitized Output:** `{report['archive_info']['sanitized_output']}`\n"
+        )
+        f.write(
+            f"- **Total Files Extracted:** {report['archive_info']['total_files_extracted']}\n"
+        )
+        f.write(
+            f"- **Files Sanitized:** {report['archive_info']['total_files_sanitized']}\n\n"
+        )
 
         # Security summary
         f.write("## Security Summary\n\n")
-        f.write(f"- **Total Secrets Found:** {report['security_summary']['total_secrets_found']}\n")
-        f.write(f"- **Files Containing Secrets:** {report['security_summary']['files_containing_secrets']}\n")
-        f.write(f"- **Secret Types Detected:** {report['security_summary']['secret_types_detected']}\n\n")
+        f.write(
+            f"- **Total Secrets Found:** {report['security_summary']['total_secrets_found']}\n"
+        )
+        f.write(
+            f"- **Files Containing Secrets:** {report['security_summary']['files_containing_secrets']}\n"
+        )
+        f.write(
+            f"- **Secret Types Detected:** {report['security_summary']['secret_types_detected']}\n\n"
+        )
 
         # Secrets by type
         if report["secrets_by_type"]:
@@ -871,7 +968,9 @@ class NetworkSanitizer:
                 key=lambda x: x[1]["total_count"],
                 reverse=True,
             ):
-                f.write(f"| {secret_type} | {data['total_count']} | {data['affected_files']} |\n")
+                f.write(
+                    f"| {secret_type} | {data['total_count']} | {data['affected_files']} |\n"
+                )
             f.write("\n")
 
         # All modified files
